@@ -6,16 +6,13 @@ import UIKit
 
 class SubscriptionWatcher {
 
-    private var timerCancellable: AnyCancellable?
+    private var timer: Timer?
     private var appLifecycleCancellable: AnyCancellable?
     private var notifyWatchSubscriptionsRequester: NotifyWatchSubscriptionsRequesting
     private let logger: ConsoleLogging
-    private let backgroundQueue = DispatchQueue(label: "com.walletconnect.subscriptionWatcher", qos: .background)
     private let notificationCenter: NotificationPublishing
-    private var watchSubscriptionsWorkItem: DispatchWorkItem?
 
     var timerInterval: TimeInterval = 5 * 60
-    var debounceInterval: TimeInterval = 0.5
     var onSetupTimer: (() -> Void)?
 
     init(notifyWatchSubscriptionsRequester: NotifyWatchSubscriptionsRequesting,
@@ -26,49 +23,48 @@ class SubscriptionWatcher {
         self.notificationCenter = notificationCenter
     }
 
-    func setupTimer() {
-        onSetupTimer?()
-        logger.debug("Setting up Subscription Watcher timer")
-        timerCancellable?.cancel()
-        timerCancellable = Timer.publish(every: timerInterval, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in
-                self?.backgroundQueue.async {
-                    self?.watchSubscriptions()
-                }
-            }
-    }
+    deinit { stop() }
 
-    func setAccount(_ account: Account) {
-        notifyWatchSubscriptionsRequester.setAccount(account)
+    func start() async throws {
+        setupAppLifecyclePublisher()
         setupTimer()
-        watchAppLifecycle()
-        watchSubscriptions()
+
+        try await notifyWatchSubscriptionsRequester.watchSubscriptions()
     }
 
-    func watchSubscriptions() {
-        watchSubscriptionsWorkItem?.cancel()
-
-        let workItem = DispatchWorkItem { [weak self] in
-            self?.logger.debug("Will watch subscriptions")
-            Task(priority: .background) { [weak self] in try await self?.notifyWatchSubscriptionsRequester.watchSubscriptions() }
-        }
-
-        watchSubscriptionsWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + debounceInterval, execute: workItem)
+    func stop() {
+        timer?.invalidate()
+        appLifecycleCancellable?.cancel()
     }
+}
 
-    func watchAppLifecycle() {
+private extension SubscriptionWatcher {
+
+    func setupAppLifecyclePublisher() {
 #if os(iOS)
         appLifecycleCancellable = notificationCenter.publisher(for: UIApplication.willEnterForegroundNotification)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                self?.logger.debug("Will setup Subscription Watcher after app entered foreground")
-                self?.setupTimer()
-                self?.backgroundQueue.async {
-                    self?.watchSubscriptions()
-                }
+                guard let self else { return }
+                self.logger.debug("SubscriptionWatcher entered foreground event")
+                self.watchSubscriptions()
             }
 #endif
+    }
+
+    func setupTimer() {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: timerInterval, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            self.logger.debug("SubscriptionWatcher scheduled event")
+            self.watchSubscriptions()
+        }
+        RunLoop.main.add(timer!, forMode: .common)
+    }
+
+    func watchSubscriptions() {
+        Task(priority: .high) {
+            try await self.notifyWatchSubscriptionsRequester.watchSubscriptions()
+        }
     }
 }

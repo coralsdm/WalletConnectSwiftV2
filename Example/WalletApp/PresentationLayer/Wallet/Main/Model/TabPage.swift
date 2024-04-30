@@ -8,9 +8,9 @@ enum TabPage: CaseIterable {
     var title: String {
         switch self {
         case .wallet:
-            return "Apps"
+            return "Connections"
         case .notifications:
-            return "Notifications"
+            return "Inbox"
         case .settings:
             return "Settings"
         }
@@ -19,11 +19,11 @@ enum TabPage: CaseIterable {
     var icon: UIImage {
         switch self {
         case .wallet:
-            return UIImage(systemName: "house.fill")!
+            return UIImage(named: "connections_tab")!
         case .notifications:
-            return UIImage(systemName: "bell.fill")!
+            return UIImage(named: "inbox_tab")!
         case .settings:
-            return UIImage(systemName: "gearshape.fill")!
+            return UIImage(named: "settings_tab")!
         }
     }
 

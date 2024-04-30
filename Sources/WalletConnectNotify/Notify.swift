@@ -7,12 +7,13 @@ public class Notify {
         }
         Push.configure(pushHost: config.pushHost, environment: config.environment)
         return NotifyClientFactory.create(
-            groupIdentifier: config.groupIdentifier,
+            projectId: Networking.projectId,
+            groupIdentifier: Networking.groupIdentifier,
             networkInteractor: Networking.interactor,
-            pairingRegisterer: Pair.registerer,
             pushClient: Push.instance,
             crypto: config.crypto,
-            notifyHost: config.notifyHost
+            notifyHost: config.notifyHost,
+            explorerHost: config.explorerHost
         )
     }()
 
@@ -21,8 +22,14 @@ public class Notify {
     private init() { }
 
     /// Wallet's configuration method
-    static public func configure(pushHost: String = "echo.walletconnect.com", groupIdentifier: String, environment: APNSEnvironment, crypto: CryptoProvider, notifyHost: String = "notify.walletconnect.com") {
-        Notify.config = Notify.Config(pushHost: pushHost, groupIdentifier: groupIdentifier, environment: environment, crypto: crypto, notifyHost: notifyHost)
+    static public func configure(
+        pushHost: String = "echo.walletconnect.com",
+        environment: APNSEnvironment,
+        crypto: CryptoProvider,
+        notifyHost: String = "notify.walletconnect.com",
+        explorerHost: String = "explorer-api.walletconnect.com"
+    ) {
+        Notify.config = Notify.Config(pushHost: pushHost, environment: environment, crypto: crypto, notifyHost: notifyHost, explorerHost: explorerHost)
     }
 
 }

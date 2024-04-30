@@ -10,21 +10,26 @@ actor WalletPairService {
     let kms: KeyManagementServiceProtocol
     private let pairingStorage: WCPairingStorage
     private let history: RPCHistory
+    private let logger: ConsoleLogging
 
     init(
         networkingInteractor: NetworkInteracting,
         kms: KeyManagementServiceProtocol,
         pairingStorage: WCPairingStorage,
-        history: RPCHistory
+        history: RPCHistory,
+        logger: ConsoleLogging
     ) {
         self.networkingInteractor = networkingInteractor
         self.kms = kms
         self.pairingStorage = pairingStorage
         self.history = history
+        self.logger = logger
     }
 
     func pair(_ uri: WalletConnectURI) async throws {
+        logger.debug("Pairing with uri: \(uri)")
         guard try !pairingHasPendingRequest(for: uri.topic) else {
+            logger.debug("Pairing with topic (\(uri.topic)) has pending request")
             return
         }
         
@@ -35,6 +40,7 @@ actor WalletPairService {
         
         let networkConnectionStatus = await resolveNetworkConnectionStatus()
         guard networkConnectionStatus == .connected else {
+            logger.debug("Pairing failed - Network is not connected")
             throw Errors.networkNotConnected
         }
         
@@ -58,13 +64,14 @@ extension WalletPairService {
                 (record.topic == pairing.topic) ? record.request : nil
             }
 
-        if let pendingRequest = pendingRequests.first {
-            networkingInteractor.handleHistoryRequest(topic: topic, request: pendingRequest)
-            return true
+
+        guard !pendingRequests.isEmpty else { return false }
+        pendingRequests.forEach { request in
+            networkingInteractor.handleHistoryRequest(topic: topic, request: request)
         }
-        return false
+        return true
     }
-    
+
     private func resolveNetworkConnectionStatus() async -> NetworkConnectionStatus {
         return await withCheckedContinuation { continuation in
             let cancellable = networkingInteractor.networkConnectionStatusPublisher.sink { value in

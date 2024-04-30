@@ -5,31 +5,23 @@ import XCTest
 import WalletConnectRelay
 import Combine
 import WalletConnectNetworking
-import WalletConnectPush
-@testable import Auth
 @testable import WalletConnectPairing
-@testable import WalletConnectSync
-@testable import WalletConnectHistory
+import WalletConnectSign
 
 final class PairingTests: XCTestCase {
 
     var appPairingClient: PairingClient!
     var walletPairingClient: PairingClient!
 
-    var appAuthClient: AuthClient!
-    var walletAuthClient: AuthClient!
-
     var pairingStorage: PairingStorage!
 
     private var publishers = [AnyCancellable]()
 
-    func makeClientDependencies(prefix: String) -> (PairingClient, NetworkingInteractor, KeychainStorageProtocol, KeyValueStorage) {
+    func makeClient(prefix: String, includeSign: Bool = true) -> PairingClient {
         let keychain = KeychainStorageMock()
         let keyValueStorage = RuntimeKeyValueStorage()
 
-        let relayLogger = ConsoleLogger(prefix: prefix + " [Relay]", loggingLevel: .debug)
-        let pairingLogger = ConsoleLogger(prefix: prefix + " [Pairing]", loggingLevel: .debug)
-        let networkingLogger = ConsoleLogger(prefix: prefix + " [Networking]", loggingLevel: .debug)
+        let logger = ConsoleLogger(prefix: prefix, loggingLevel: .debug)
 
         let relayClient = RelayClientFactory.create(
             relayHost: InputConfig.relayHost,
@@ -37,81 +29,32 @@ final class PairingTests: XCTestCase {
             keyValueStorage: RuntimeKeyValueStorage(),
             keychainStorage: keychain,
             socketFactory: DefaultSocketFactory(),
-            logger: relayLogger)
+            networkMonitor: NetworkMonitor(),
+            logger: logger)
 
         let networkingClient = NetworkingClientFactory.create(
             relayClient: relayClient,
-            logger: networkingLogger,
+            logger: logger,
             keychainStorage: keychain,
             keyValueStorage: keyValueStorage)
 
         let pairingClient = PairingClientFactory.create(
-            logger: pairingLogger,
+            logger: logger,
             keyValueStorage: keyValueStorage,
             keychainStorage: keychain,
             networkingClient: networkingClient)
-        let clientId = try! networkingClient.getClientId()
-        networkingLogger.debug("My client id is: \(clientId)")
-        
-        return (pairingClient, networkingClient, keychain, keyValueStorage)
-    }
 
-    func makeDappClients() {
-        let prefix = "🤖 Dapp: "
-        let (pairingClient, networkingInteractor, keychain, keyValueStorage) = makeClientDependencies(prefix: prefix)
-        let notifyLogger = ConsoleLogger(prefix: prefix + " [Notify]", loggingLevel: .debug)
-        appPairingClient = pairingClient
-        
-        appAuthClient = AuthClientFactory.create(
-            metadata: AppMetadata(name: name, description: "", url: "", icons: [""]),
-            projectId: InputConfig.projectId,
-            crypto: DefaultCryptoProvider(),
-            logger: notifyLogger,
-            keyValueStorage: keyValueStorage,
-            keychainStorage: keychain,
-            networkingClient: networkingInteractor,
-            pairingRegisterer: pairingClient,
-            iatProvider: IATProviderMock())
-    }
 
-    func makeWalletClients() {
-        let prefix = "🐶 Wallet: "
-        let (pairingClient, networkingInteractor, keychain, keyValueStorage) = makeClientDependencies(prefix: prefix)
-        let notifyLogger = ConsoleLogger(prefix: prefix + " [Notify]", loggingLevel: .debug)
-        let defaults = RuntimeKeyValueStorage()
-        walletPairingClient = pairingClient
-        let historyClient = HistoryClientFactory.create(
-            historyUrl: "https://history.walletconnect.com",
-            relayUrl: "wss://relay.walletconnect.com",
-            keyValueStorage: defaults,
-            keychain: keychain,
-            logger: notifyLogger
-        )
-        appAuthClient = AuthClientFactory.create(
-            metadata: AppMetadata(name: name, description: "", url: "", icons: [""]),
-            projectId: InputConfig.projectId,
-            crypto: DefaultCryptoProvider(),
-            logger: notifyLogger,
-            keyValueStorage: keyValueStorage,
-            keychainStorage: keychain,
-            networkingClient: networkingInteractor,
-            pairingRegisterer: pairingClient,
-            iatProvider: IATProviderMock())
-    }
-
-    func makeWalletPairingClient() {
-        let prefix = "🐶 Wallet: "
-        let (pairingClient, _, _, _) = makeClientDependencies(prefix: prefix)
-        walletPairingClient = pairingClient
+        return pairingClient
     }
 
     override func setUp() {
-        makeDappClients()
+        appPairingClient = makeClient(prefix: "🤖 Dapp: ")
+        walletPairingClient = makeClient(prefix: "🐶 Wallet: ", includeSign: false)
     }
 
     func testPing() async {
         let expectation = expectation(description: "expects ping response")
-        makeWalletClients()
         let uri = try! await appPairingClient.create()
         try? await walletPairingClient.pair(uri: uri)
         try! await walletPairingClient.ping(topic: uri.topic)
@@ -123,12 +66,12 @@ final class PairingTests: XCTestCase {
         wait(for: [expectation], timeout: InputConfig.defaultTimeout)
     }
 
-    func testResponseErrorForMethodUnregistered() async {
-        makeWalletPairingClient()
-        let expectation = expectation(description: "wallet responds unsupported method for unregistered method")
+    func testDisconnect() async {
 
-        appAuthClient.authResponsePublisher.sink { (_, response) in
-            XCTAssertEqual(response, .failure(AuthError(code: 10001)!))
+        let expectation = expectation(description: "wallet disconnected pairing")
+
+
+        walletPairingClient.pairingDeletePublisher.sink { _ in
             expectation.fulfill()
         }.store(in: &publishers)
 
@@ -136,12 +79,7 @@ final class PairingTests: XCTestCase {
 
         try? await walletPairingClient.pair(uri: uri)
 
-        try! await appAuthClient.request(RequestParams.stub(), topic: uri.topic)
-
+        try! await appPairingClient.disconnect(topic: uri.topic)
         wait(for: [expectation], timeout: InputConfig.defaultTimeout)
-    }
-
-    func testDisconnect() {
-        // TODO
     }
 }

@@ -25,7 +25,7 @@ public struct AppMetadata: Codable, Equatable {
             - native: Native deeplink URL string.
             - universal: Universal link URL string.
          */
-        public init(native: String?, universal: String?) {
+        public init(native: String, universal: String?) {
             self.native = native
             self.universal = universal
         }
@@ -61,7 +61,7 @@ public struct AppMetadata: Codable, Equatable {
         description: String,
         url: String,
         icons: [String],
-        redirect: Redirect? = nil
+        redirect: Redirect
     ) {
         self.name = name
         self.description = description
@@ -70,3 +70,17 @@ public struct AppMetadata: Codable, Equatable {
         self.redirect = redirect
     }
 }
+
+#if DEBUG
+public extension AppMetadata {
+    static func stub() -> AppMetadata {
+        AppMetadata(
+            name: "Wallet Connect",
+            description: "A protocol to connect blockchain wallets to dapps.",
+            url: "https://walletconnect.com/",
+            icons: [],
+            redirect: AppMetadata.Redirect(native: "", universal: nil)
+        )
+    }
+}
+#endif

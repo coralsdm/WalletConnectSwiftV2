@@ -5,7 +5,7 @@ import JSONRPC
 @testable import TestingUtils
 @testable import WalletConnectKMS
 @testable import WalletConnectPairing
-import WalletConnectUtils
+@testable import WalletConnectUtils
 
 func deriveTopic(publicKey: String, privateKey: AgreementPrivateKey) -> String {
     try! KeyManagementService.generateAgreementKey(from: privateKey, peerPublicKey: publicKey).derivedTopic()
@@ -59,6 +59,12 @@ final class AppProposalServiceTests: XCTestCase {
             kms: cryptoMock,
             logger: logger
         )
+        let history = RPCHistory(
+            keyValueStore: .init(
+                defaults: RuntimeKeyValueStorage(),
+                identifier: ""
+            )
+        )
         approveEngine = ApproveEngine(
             networkingInteractor: networkingInteractor,
             proposalPayloadsStore: .init(defaults: RuntimeKeyValueStorage(), identifier: ""),
@@ -70,7 +76,9 @@ final class AppProposalServiceTests: XCTestCase {
             logger: logger,
             pairingStore: storageMock,
             sessionStore: WCSessionStorageMock(),
-            verifyClient: VerifyClientMock()
+            verifyClient: VerifyClientMock(),
+            rpcHistory: history,
+            authRequestSubscribersTracking: AuthRequestSubscribersTracking(logger: logger)
         )
     }
 
@@ -92,7 +100,7 @@ final class AppProposalServiceTests: XCTestCase {
 
     func testHandleSessionProposeResponse() async {
         let exp = expectation(description: "testHandleSessionProposeResponse")
-        let uri = try! await appPairService.create()
+        let uri = try! await appPairService.create(supportedMethods: nil)
         let pairing = storageMock.getPairing(forTopic: uri.topic)!
         let topicA = pairing.topic
         let relayOptions = RelayProtocolOptions(protocol: "", data: nil)
@@ -121,7 +129,7 @@ final class AppProposalServiceTests: XCTestCase {
         let topicB = deriveTopic(publicKey: responder.publicKey, privateKey: privateKey)
         _ = storageMock.getPairing(forTopic: topicA)!
 
-        wait(for: [exp], timeout: 5)
+        await fulfillment(of: [exp], timeout: 5)
 
         let sessionTopic = networkingInteractor.subscriptions.last!
 
@@ -130,7 +138,7 @@ final class AppProposalServiceTests: XCTestCase {
     }
 
     func testSessionProposeError() async {
-        let uri = try! await appPairService.create()
+        let uri = try! await appPairService.create(supportedMethods: nil)
         let pairing = storageMock.getPairing(forTopic: uri.topic)!
         let topicA = pairing.topic
         let relayOptions = RelayProtocolOptions(protocol: "", data: nil)
@@ -154,7 +162,7 @@ final class AppProposalServiceTests: XCTestCase {
     }
 
     func testSessionProposeErrorOnActivePairing() async {
-        let uri = try! await appPairService.create()
+        let uri = try! await appPairService.create(supportedMethods: nil)
         let pairing = storageMock.getPairing(forTopic: uri.topic)!
         let topicA = pairing.topic
         let relayOptions = RelayProtocolOptions(protocol: "", data: nil)

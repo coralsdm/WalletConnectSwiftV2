@@ -2,7 +2,6 @@ import Foundation
 import XCTest
 import Combine
 @testable import Web3Wallet
-@testable import Auth
 @testable import WalletConnectSign
 @testable import WalletConnectPush
 
@@ -33,6 +32,7 @@ final class XPlatformW3WTests: XCTestCase {
             keyValueStorage: keyValueStorage,
             keychainStorage: keychain,
             socketFactory: DefaultSocketFactory(),
+            networkMonitor: NetworkMonitor(),
             logger: relayLogger
         )
 
@@ -49,27 +49,18 @@ final class XPlatformW3WTests: XCTestCase {
             networkingClient: networkingClient)
 
         let signClient = SignClientFactory.create(
-            metadata: AppMetadata(name: name, description: "", url: "", icons: [""]),
+            metadata: AppMetadata(name: name, description: "", url: "", icons: [""], redirect: AppMetadata.Redirect(native: "", universal: nil)),
             logger: signLogger,
             keyValueStorage: keyValueStorage,
             keychainStorage: keychain,
             pairingClient: pairingClient,
-            networkingClient: networkingClient
+            networkingClient: networkingClient,
+            iatProvider: DefaultIATProvider(),
+            projectId: InputConfig.projectId,
+            crypto: DefaultCryptoProvider()
         )
 
-        let authClient = AuthClientFactory.create(
-            metadata: AppMetadata(name: name, description: "", url: "", icons: [""]),
-            projectId: InputConfig.projectId,
-            crypto: DefaultCryptoProvider(),
-            logger: authLogger,
-            keyValueStorage: keyValueStorage,
-            keychainStorage: keychain,
-            networkingClient: networkingClient,
-            pairingRegisterer: pairingClient,
-            iatProvider: DefaultIATProvider())
-
         w3wClient = Web3WalletClientFactory.create(
-            authClient: authClient,
             signClient: signClient,
             pairingClient: pairingClient,
             pushClient: PushClientMock())

@@ -1,7 +1,6 @@
 import UIKit
 import Combine
 
-import Auth
 import Web3Wallet
 
 final class ConnectionDetailsPresenter: ObservableObject {
@@ -25,11 +24,14 @@ final class ConnectionDetailsPresenter: ObservableObject {
     func onDelete() {
         Task {
             do {
+                ActivityIndicatorManager.shared.start()
                 try await interactor.disconnectSession(session: session)
+                ActivityIndicatorManager.shared.stop()
                 DispatchQueue.main.async {
                     self.router.dismiss()
                 }
             } catch {
+                ActivityIndicatorManager.shared.stop()
                 print(error)
             }
         }

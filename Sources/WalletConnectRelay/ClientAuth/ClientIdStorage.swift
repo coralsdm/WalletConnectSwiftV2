@@ -8,6 +8,7 @@ public protocol ClientIdStoring {
 public struct ClientIdStorage: ClientIdStoring {
     private let oldStorageKey = "com.walletconnect.iridium.client_id"
     private let publicStorageKey = "com.walletconnect.iridium.client_id.public"
+    private static let migrationQueue = DispatchQueue(label: "com.walletconnect.iridium.clientIdStorageMigration")
 
     private let defaults: KeyValueStorage
     private let keychain: KeychainStorageProtocol
@@ -25,11 +26,13 @@ public struct ClientIdStorage: ClientIdStoring {
         do {
             let publicPart = try getPublicPart()
             return try getPrivatePart(for: publicPart)
-        } catch {
+        } catch Errors.privatePartNotFound, Errors.publicPartNotFound {
             let privateKey = SigningPrivateKey()
             try setPrivatePart(privateKey)
             setPublicPart(privateKey.publicKey)
             return privateKey
+        } catch {
+            throw error
         }
     }
 
@@ -48,18 +51,39 @@ private extension ClientIdStorage {
     }
 
     func migrateIfNeeded() {
+        ClientIdStorage.migrationQueue.sync {
+            migratePublicKeyToGroupUserDefaultsIfNeeded()
+            migrateFromKeychainToKeyValueStorageIfNeeded()
+        }
+    }
+
+    func migrateFromKeychainToKeyValueStorageIfNeeded() {
         guard let privateKey: SigningPrivateKey = try? keychain.read(key: oldStorageKey) else {
             return
         }
-
         do {
             try setPrivatePart(privateKey)
             setPublicPart(privateKey.publicKey)
             try keychain.delete(key: oldStorageKey)
-            logger.debug("ClientID migrated")
+            logger.debug("Keychain data migrated to group UserDefaults")
         } catch {
             logger.debug("ClientID migration failed with: \(error.localizedDescription)")
         }
+    }
+
+    private func migratePublicKeyToGroupUserDefaultsIfNeeded() {
+        let migrationKey = "com.walletconnect.has_migrated_public_key_to_group"
+        guard let groupDefaults = defaults as? UserDefaults,
+              groupDefaults != UserDefaults.standard,
+              !groupDefaults.bool(forKey: migrationKey),
+              let pubKeyRaw = UserDefaults.standard.data(forKey: publicStorageKey) else {
+            return
+        }
+
+        groupDefaults.set(pubKeyRaw, forKey: publicStorageKey)
+        groupDefaults.set(true, forKey: migrationKey)
+        UserDefaults.standard.removeObject(forKey: publicStorageKey)
+        logger.debug("Public key migrated to group UserDefaults")
     }
 
     func getPublicPart() throws -> SigningPublicKey {
@@ -76,8 +100,10 @@ private extension ClientIdStorage {
     func getPrivatePart(for publicPart: SigningPublicKey) throws -> SigningPrivateKey {
         do {
             return try keychain.read(key: publicPart.storageId)
-        } catch {
+        } catch KeychainError.itemNotFound {
             throw Errors.privatePartNotFound
+        } catch {
+            throw error
         }
     }
 

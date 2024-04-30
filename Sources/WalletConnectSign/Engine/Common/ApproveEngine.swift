@@ -3,13 +3,14 @@ import Combine
 
 final class ApproveEngine {
     enum Errors: Error {
-        case wrongRequestParams
+        case proposalNotFound
         case relayNotFound
-        case proposalPayloadsNotFound
         case pairingNotFound
         case sessionNotFound
         case agreementMissingOrInvalid
         case networkNotConnected
+        case proposalExpired
+        case emtySessionNamespacesForbidden
     }
 
     var onSessionProposal: ((Session.Proposal, VerifyContext?) -> Void)?
@@ -27,6 +28,8 @@ final class ApproveEngine {
     private let metadata: AppMetadata
     private let kms: KeyManagementServiceProtocol
     private let logger: ConsoleLogging
+    private let rpcHistory: RPCHistory
+    private let authRequestSubscribersTracking: AuthRequestSubscribersTracking
 
     private var publishers = Set<AnyCancellable>()
 
@@ -41,7 +44,9 @@ final class ApproveEngine {
         logger: ConsoleLogging,
         pairingStore: WCPairingStorage,
         sessionStore: WCSessionStorage,
-        verifyClient: VerifyClientProtocol
+        verifyClient: VerifyClientProtocol,
+        rpcHistory: RPCHistory,
+        authRequestSubscribersTracking: AuthRequestSubscribersTracking
     ) {
         self.networkingInteractor = networkingInteractor
         self.proposalPayloadsStore = proposalPayloadsStore
@@ -54,27 +59,37 @@ final class ApproveEngine {
         self.pairingStore = pairingStore
         self.sessionStore = sessionStore
         self.verifyClient = verifyClient
+        self.rpcHistory = rpcHistory
+        self.authRequestSubscribersTracking = authRequestSubscribersTracking
 
         setupRequestSubscriptions()
         setupResponseSubscriptions()
         setupResponseErrorSubscriptions()
     }
 
-    func approveProposal(proposerPubKey: String, validating sessionNamespaces: [String: SessionNamespace], sessionProperties: [String: String]? = nil) async throws {
+    func approveProposal(proposerPubKey: String, validating sessionNamespaces: [String: SessionNamespace], sessionProperties: [String: String]? = nil) async throws -> Session {
+        logger.debug("Approving session proposal")
+
+        guard !sessionNamespaces.isEmpty else { throw Errors.emtySessionNamespacesForbidden }
+
         guard let payload = try proposalPayloadsStore.get(key: proposerPubKey) else {
-            throw Errors.wrongRequestParams
+            throw Errors.proposalNotFound
         }
-        
+
+        let proposal = payload.request
+
+        guard !proposal.isExpired() else {
+            logger.debug("Proposal has expired, topic: \(payload.topic)")
+            proposalPayloadsStore.delete(forKey: proposerPubKey)
+            throw Errors.proposalExpired
+        }
+
         let networkConnectionStatus = await resolveNetworkConnectionStatus()
         guard networkConnectionStatus == .connected else {
             throw Errors.networkNotConnected
         }
 
-        let proposal = payload.request
         let pairingTopic = payload.topic
-
-        proposalPayloadsStore.delete(forKey: proposerPubKey)
-        verifyContextStore.delete(forKey: proposerPubKey)
 
         try Namespace.validate(sessionNamespaces)
         try Namespace.validateApproved(sessionNamespaces, against: proposal.requiredNamespaces)
@@ -96,13 +111,13 @@ final class ApproveEngine {
         let result = SessionType.ProposeResponse(relay: relay, responderPublicKey: selfPublicKey.hexRepresentation)
         let response = RPCResponse(id: payload.id, result: result)
 
-        async let proposeResponse: () = networkingInteractor.respond(
+        async let proposeResponseTask: () = networkingInteractor.respond(
             topic: payload.topic,
             response: response,
             protocolMethod: SessionProposeProtocolMethod()
         )
 
-        async let settleRequest: () = settle(
+        async let settleRequestTask: WCSession = settle(
             topic: sessionTopic,
             proposal: proposal,
             namespaces: sessionNamespaces,
@@ -110,25 +125,42 @@ final class ApproveEngine {
             pairingTopic: pairingTopic
         )
 
-        _ = try await [proposeResponse, settleRequest]
+        _ = try await proposeResponseTask
+        let session: WCSession = try await settleRequestTask
+
+        sessionStore.setSession(session)
+        onSessionSettle?(session.publicRepresentation())
+        logger.debug("Session proposal response and settle request have been sent")
+
+        proposalPayloadsStore.delete(forKey: proposerPubKey)
+        verifyContextStore.delete(forKey: proposerPubKey)
 
         pairingRegisterer.activate(
             pairingTopic: payload.topic,
             peerMetadata: payload.request.proposer.metadata
         )
+        return session.publicRepresentation()
     }
 
     func reject(proposerPubKey: String, reason: SignReasonCode) async throws {
         guard let payload = try proposalPayloadsStore.get(key: proposerPubKey) else {
-            throw Errors.proposalPayloadsNotFound
+            throw Errors.proposalNotFound
         }
+
+        try await networkingInteractor.respondError(topic: payload.topic, requestId: payload.id, protocolMethod: SessionProposeProtocolMethod(), reason: reason)
+
+        if let pairingTopic = rpcHistory.get(recordId: payload.id)?.topic,
+           let pairing = pairingStore.getPairing(forTopic: pairingTopic),
+           !pairing.active {
+            pairingStore.delete(topic: pairingTopic)
+        }
+
         proposalPayloadsStore.delete(forKey: proposerPubKey)
         verifyContextStore.delete(forKey: proposerPubKey)
-        try await networkingInteractor.respondError(topic: payload.topic, requestId: payload.id, protocolMethod: SessionProposeProtocolMethod(), reason: reason)
-        // TODO: Delete pairing if inactive 
+
     }
 
-    func settle(topic: String, proposal: SessionProposal, namespaces: [String: SessionNamespace], sessionProperties: [String: String]? = nil, pairingTopic: String) async throws {
+    func settle(topic: String, proposal: SessionProposal, namespaces: [String: SessionNamespace], sessionProperties: [String: String]? = nil, pairingTopic: String) async throws -> WCSession {
         guard let agreementKeys = kms.getAgreementSecret(for: topic) else {
             throw Errors.agreementMissingOrInvalid
         }
@@ -166,7 +198,6 @@ final class ApproveEngine {
 
         logger.debug("Sending session settle request")
 
-        sessionStore.setSession(session)
 
         let protocolMethod = SessionSettleProtocolMethod()
         let request = RPCRequest(method: protocolMethod.method, params: settleParams)
@@ -175,7 +206,7 @@ final class ApproveEngine {
         async let settleRequest: () = networkingInteractor.request(request, topic: topic, protocolMethod: protocolMethod)
 
         _ = try await [settleRequest, subscription]
-        onSessionSettle?(session.publicRepresentation())
+        return session
     }
 }
 
@@ -186,6 +217,14 @@ private extension ApproveEngine {
     func setupRequestSubscriptions() {
         pairingRegisterer.register(method: SessionProposeProtocolMethod())
             .sink { [unowned self] (payload: RequestSubscriptionPayload<SessionType.ProposeParams>) in
+                guard let pairing = pairingStore.getPairing(forTopic: payload.topic) else { return }
+                if let methods = pairing.methods,
+                   methods.flatMap({ $0 })
+                    .contains(SessionAuthenticatedProtocolMethod().method), authRequestSubscribersTracking.hasSubscribers() {
+                    logger.debug("Ignoring Session Proposal")
+                    // respond with an error?
+                    return
+                }
                 handleSessionProposeRequest(payload: payload)
             }.store(in: &publishers)
 
@@ -405,8 +444,22 @@ private extension ApproveEngine {
 extension ApproveEngine.Errors: LocalizedError {
     var errorDescription: String? {
         switch self {
-        case .networkNotConnected:  return "Action failed. You seem to be offline"
-        default:                    return ""
+        case .proposalNotFound:
+            return "Proposal not found."
+        case .relayNotFound:
+            return "Relay not found."
+        case .pairingNotFound:
+            return "Pairing not found."
+        case .sessionNotFound:
+            return "Session not found."
+        case .agreementMissingOrInvalid:
+            return "Agreement missing or invalid."
+        case .networkNotConnected:
+            return "Network not connected."
+        case .proposalExpired:
+            return "Proposal expired."
+        case .emtySessionNamespacesForbidden:
+            return "Session Namespaces Cannot Be Empty"
         }
     }
 }

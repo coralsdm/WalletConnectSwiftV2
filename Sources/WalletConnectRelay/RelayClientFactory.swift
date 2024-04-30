@@ -8,14 +8,19 @@ public struct RelayClientFactory {
         relayHost: String,
         projectId: String,
         socketFactory: WebSocketFactory,
+        groupIdentifier: String,
         socketConnectionType: SocketConnectionType
     ) -> RelayClient {
 
-        let keyValueStorage = UserDefaults.standard
 
-        let keychainStorage = KeychainStorage(serviceIdentifier: "com.walletconnect.sdk")
+        guard let keyValueStorage = UserDefaults(suiteName: groupIdentifier) else {
+            fatalError("Could not instantiate UserDefaults for a group identifier \(groupIdentifier)")
+        }
+        let keychainStorage = KeychainStorage(serviceIdentifier: "com.walletconnect.sdk", accessGroup: groupIdentifier)
 
         let logger = ConsoleLogger(prefix: "🚄" ,loggingLevel: .off)
+
+        let networkMonitor = NetworkMonitor()
 
         return RelayClientFactory.create(
             relayHost: relayHost,
@@ -24,6 +29,7 @@ public struct RelayClientFactory {
             keychainStorage: keychainStorage,
             socketFactory: socketFactory,
             socketConnectionType: socketConnectionType,
+            networkMonitor: networkMonitor,
             logger: logger
         )
     }
@@ -36,23 +42,25 @@ public struct RelayClientFactory {
         keychainStorage: KeychainStorageProtocol,
         socketFactory: WebSocketFactory,
         socketConnectionType: SocketConnectionType = .automatic,
+        networkMonitor: NetworkMonitoring,
         logger: ConsoleLogging
     ) -> RelayClient {
 
         let clientIdStorage = ClientIdStorage(defaults: keyValueStorage, keychain: keychainStorage, logger: logger)
 
         let socketAuthenticator = ClientIdAuthenticator(
-            clientIdStorage: clientIdStorage,
-            url: "wss://\(relayHost)"
+            clientIdStorage: clientIdStorage
         )
         let relayUrlFactory = RelayUrlFactory(
             relayHost: relayHost,
             projectId: projectId,
             socketAuthenticator: socketAuthenticator
         )
+
         let dispatcher = Dispatcher(
             socketFactory: socketFactory,
-            relayUrlFactory: relayUrlFactory,
+            relayUrlFactory: relayUrlFactory, 
+            networkMonitor: networkMonitor,
             socketConnectionType: socketConnectionType,
             logger: logger
         )

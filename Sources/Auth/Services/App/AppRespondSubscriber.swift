@@ -6,18 +6,18 @@ class AppRespondSubscriber {
     private let logger: ConsoleLogging
     private let rpcHistory: RPCHistory
     private let signatureVerifier: MessageVerifier
-    private let messageFormatter: SIWECacaoFormatting
+    private let messageFormatter: SIWEFromCacaoPayloadFormatter
     private let pairingRegisterer: PairingRegisterer
     private var publishers = [AnyCancellable]()
 
-    var onResponse: ((_ id: RPCID, _ result: Result<Cacao, AuthError>) -> Void)?
+    var onResponse: ((_ id: RPCID, _ result: Result<Cacao, AuthErrors>) -> Void)?
 
     init(networkingInteractor: NetworkInteracting,
          logger: ConsoleLogging,
          rpcHistory: RPCHistory,
          signatureVerifier: MessageVerifier,
          pairingRegisterer: PairingRegisterer,
-         messageFormatter: SIWECacaoFormatting) {
+         messageFormatter: SIWEFromCacaoPayloadFormatter) {
         self.networkingInteractor = networkingInteractor
         self.logger = logger
         self.rpcHistory = rpcHistory
@@ -29,13 +29,13 @@ class AppRespondSubscriber {
 
     private func subscribeForResponse() {
         networkingInteractor.responseErrorSubscription(on: AuthRequestProtocolMethod())
-            .sink { [unowned self] (payload: ResponseSubscriptionErrorPayload<AuthRequestParams>) in
-                guard let error = AuthError(code: payload.error.code) else { return }
+            .sink { [unowned self] (payload: ResponseSubscriptionErrorPayload<Auth_RequestParams>) in
+                guard let error = AuthErrors(code: payload.error.code) else { return }
                 onResponse?(payload.id, .failure(error))
             }.store(in: &publishers)
 
         networkingInteractor.responseSubscription(on: AuthRequestProtocolMethod())
-            .sink { [unowned self] (payload: ResponseSubscriptionPayload<AuthRequestParams, Cacao>)  in
+            .sink { [unowned self] (payload: ResponseSubscriptionPayload<Auth_RequestParams, Cacao>)  in
 
                 pairingRegisterer.activate(pairingTopic: payload.topic, peerMetadata: nil)
 
