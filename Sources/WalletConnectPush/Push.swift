@@ -10,7 +10,6 @@ public class Push {
         return PushClientFactory.create(
             projectId: Networking.projectId,
             pushHost: config.pushHost,
-            groupIdentifier: Networking.groupIdentifier,
             environment: config.environment)
     }()
 

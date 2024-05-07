@@ -7,9 +7,9 @@ public struct MessageSigner {
     }
 
     private let signer: EthereumSigner
-    private let messageFormatter: SIWEFromCacaoFormatting
+    private let messageFormatter: SIWECacaoFormatting
 
-    init(signer: EthereumSigner, messageFormatter: SIWEFromCacaoFormatting) {
+    init(signer: EthereumSigner, messageFormatter: SIWECacaoFormatting) {
         self.signer = signer
         self.messageFormatter = messageFormatter
     }

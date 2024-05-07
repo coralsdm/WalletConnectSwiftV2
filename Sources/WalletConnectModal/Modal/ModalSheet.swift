@@ -81,7 +81,7 @@ public struct ModalSheet: View {
             VStack {
                 if viewModel.destination.hasSearch {
                     HStack {
-                        Image(sfSymbolName: "magnifyingglass")
+                        Image(systemName: "magnifyingglass")
                         TextField("Search", text: $viewModel.searchTerm, onEditingChanged: { editing in
                             self.searchEditing = editing
                         })
@@ -119,12 +119,14 @@ public struct ModalSheet: View {
     @ViewBuilder
     private func welcome() -> some View {
         WalletList(
+            wallets: .init(get: {
+                viewModel.filteredWallets
+            }, set: { _ in }),
             destination: .init(get: {
                 viewModel.destination
             }, set: { _ in }),
-            viewModel: viewModel,
             navigateTo: viewModel.navigateTo(_:),
-            onWalletTap: { viewModel.onWalletTap($0) }
+            onListingTap: { viewModel.onListingTap($0) }
         )
     }
     
@@ -184,7 +186,7 @@ extension ModalSheet {
                 viewModel.onBackButton()
             }
         } label: {
-            Image(sfSymbolName: "chevron.backward")
+            Image(systemName: "chevron.backward")
                 .padding(20)
         }
     }

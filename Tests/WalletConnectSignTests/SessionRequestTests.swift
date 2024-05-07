@@ -1,71 +1,83 @@
 import XCTest
 @testable import WalletConnectSign
 
-class RequestTests: XCTestCase {
+final class SessionRequestTests: XCTestCase {
 
-    func testInitWithValidTtl() {
-        XCTAssertNoThrow(try Request.stub(ttl: 3600)) // 1 hour
+    func testRequestTtlDefault() {
+        let request = Request.stub()
+
+        XCTAssertEqual(request.calculateTtl(), SessionRequestProtocolMethod.defaultTtl)
     }
 
-    func testInitWithInvalidTtlTooShort() {
-        XCTAssertThrowsError(try Request.stub(ttl: 100)) { error in // Less than minTtl
-            XCTAssertEqual(error as? Request.Errors, Request.Errors.invalidTtl)
-        }
+    func testRequestTtlExtended() {
+        let currentDate = Date(timeIntervalSince1970: 0)
+        let expiry = currentDate.advanced(by: 500)
+        let request = Request.stub(expiry: UInt64(expiry.timeIntervalSince1970))
+
+        XCTAssertEqual(request.calculateTtl(currentDate: currentDate), 500)
     }
 
-    func testInitWithInvalidTtlTooLong() {
-        XCTAssertThrowsError(try Request.stub(ttl: 700000)) { error in // More than maxTtl
-            XCTAssertEqual(error as? Request.Errors, Request.Errors.invalidTtl)
-        }
+    func testRequestTtlNotExtendedMinValidation() {
+        let currentDate = Date(timeIntervalSince1970: 0)
+        let expiry = currentDate.advanced(by: 200)
+        let request = Request.stub(expiry: UInt64(expiry.timeIntervalSince1970))
+
+        XCTAssertEqual(request.calculateTtl(currentDate: currentDate), SessionRequestProtocolMethod.defaultTtl)
     }
 
-    func testIsExpiredForNonExpiredRequest() {
-        let request = try! Request.stub(ttl: 3600) // 1 hour
+    func testRequestTtlNotExtendedMaxValidation() {
+        let currentDate = Date(timeIntervalSince1970: 0)
+        let expiry = currentDate.advanced(by: 700000)
+        let request = Request.stub(expiry: UInt64(expiry.timeIntervalSince1970))
+
+        XCTAssertEqual(request.calculateTtl(currentDate: currentDate), SessionRequestProtocolMethod.defaultTtl)
+    }
+
+    func testIsExpiredDefault() {
+        let request = Request.stub()
+
         XCTAssertFalse(request.isExpired())
     }
 
-    func testIsExpiredForExpiredRequest() {
-        let pastTimestamp = UInt64(Date().timeIntervalSince1970) - 3600 // 1 hour ago
-        let request = Request.stubWithExpiry(expiry: pastTimestamp)
-        XCTAssertTrue(request.isExpired())
+    func testIsExpiredTrue() {
+        let currentDate = Date(timeIntervalSince1970: 500)
+        let expiry = Date(timeIntervalSince1970: 0)
+        let request = Request.stub(expiry: UInt64(expiry.timeIntervalSince1970))
+        XCTAssertTrue(request.isExpired(currentDate: currentDate))
     }
 
-    func testCalculateTtlForNonExpiredRequest() {
-        let request = try! Request.stub(ttl: 3600) // 1 hour
-        XCTAssertNoThrow(try request.calculateTtl())
+    func testIsExpiredTrueMinValidation() {
+        let currentDate = Date(timeIntervalSince1970: 500)
+        let expiry = Date(timeIntervalSince1970: 600)
+        let request = Request.stub(expiry: UInt64(expiry.timeIntervalSince1970))
+        XCTAssertTrue(request.isExpired(currentDate: currentDate))
     }
 
-    func testCalculateTtlForExpiredRequest() {
-        let pastTimestamp = UInt64(Date().timeIntervalSince1970) - 3600 // 1 hour ago
-        let request = Request.stubWithExpiry(expiry: pastTimestamp)
-        XCTAssertThrowsError(try request.calculateTtl()) { error in
-            XCTAssertEqual(error as? Request.Errors, Request.Errors.requestExpired)
-        }
+    func testIsExpiredTrueMaxValidation() {
+        let currentDate = Date(timeIntervalSince1970: 500)
+        let expiry = Date(timeIntervalSince1970: 700000)
+        let request = Request.stub(expiry: UInt64(expiry.timeIntervalSince1970))
+        XCTAssertTrue(request.isExpired(currentDate: currentDate))
+    }
+
+    func testIsExpiredFalse() {
+        let currentDate = Date(timeIntervalSince1970: 0)
+        let expiry = Date(timeIntervalSince1970: 500)
+        let request = Request.stub(expiry: UInt64(expiry.timeIntervalSince1970))
+
+        XCTAssertFalse(request.isExpired(currentDate: currentDate))
     }
 }
 
-
-
 private extension Request {
 
-    static func stub(ttl: TimeInterval = 300) throws -> Request {
-        return try Request(
-            topic: "topic",
-            method: "method",
-            params: AnyCodable("params"),
-            chainId: Blockchain("eip155:1")!,
-            ttl: ttl
-        )
-    }
-
-    static func stubWithExpiry(expiry: UInt64) -> Request {
+    static func stub(expiry: UInt64? = nil) -> Request {
         return Request(
-            id: RPCID(JsonRpcID.generate()),
             topic: "topic",
             method: "method",
             params: AnyCodable("params"),
             chainId: Blockchain("eip155:1")!,
-            expiryTimestamp: expiry
+            expiry: expiry
         )
     }
 }

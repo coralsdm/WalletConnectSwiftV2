@@ -14,13 +14,13 @@ public class PushClient: PushClientProtocol {
         self.logger = logger
     }
 
-    public func register(deviceToken: Data, enableEncrypted: Bool = false) async throws {
-        try await registerService.register(deviceToken: deviceToken, alwaysRaw: enableEncrypted)
+    public func register(deviceToken: Data) async throws {
+        try await registerService.register(deviceToken: deviceToken)
     }
 
 #if DEBUG
     public func register(deviceToken: String) async throws {
-        try await registerService.register(deviceToken: deviceToken, alwaysRaw: true)
+        try await registerService.register(deviceToken: deviceToken)
     }
 #endif
 }

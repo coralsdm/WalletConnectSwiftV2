@@ -1,12 +1,12 @@
 import XCTest
 import Combine
 import JSONRPC
+import WalletConnectUtils
+import WalletConnectPairing
 import WalletConnectNetworking
-@testable import WalletConnectPairing
 @testable import WalletConnectSign
 @testable import TestingUtils
 @testable import WalletConnectKMS
-@testable import WalletConnectUtils
 
 final class ApproveEngineTests: XCTestCase {
 
@@ -33,12 +33,6 @@ final class ApproveEngineTests: XCTestCase {
         proposalPayloadsStore = CodableStore<RequestSubscriptionPayload<SessionType.ProposeParams>>(defaults: RuntimeKeyValueStorage(), identifier: "")
         verifyContextStore = CodableStore<VerifyContext>(defaults: RuntimeKeyValueStorage(), identifier: "")
         sessionTopicToProposal = CodableStore<Session.Proposal>(defaults: RuntimeKeyValueStorage(), identifier: "")
-        let history = RPCHistory(
-            keyValueStore: .init(
-                defaults: RuntimeKeyValueStorage(),
-                identifier: ""
-            )
-        )
         engine = ApproveEngine(
             networkingInteractor: networkingInteractor,
             proposalPayloadsStore: proposalPayloadsStore,
@@ -50,9 +44,7 @@ final class ApproveEngineTests: XCTestCase {
             logger: ConsoleLoggerMock(),
             pairingStore: pairingStorageMock,
             sessionStore: sessionStorageMock,
-            verifyClient: VerifyClientMock(),
-            rpcHistory: history,
-            authRequestSubscribersTracking: AuthRequestSubscribersTracking(logger: ConsoleLoggerMock())
+            verifyClient: VerifyClientMock()
         )
     }
 
@@ -74,14 +66,13 @@ final class ApproveEngineTests: XCTestCase {
         let proposal = SessionProposal.stub(proposerPubKey: proposerPubKey)
         pairingRegisterer.subject.send(RequestSubscriptionPayload(id: RPCID("id"), topic: topicA, request: proposal, decryptedPayload: Data(), publishedAt: Date(), derivedTopic: nil))
         
-        _ = try await engine.approveProposal(proposerPubKey: proposal.proposer.publicKey, validating: SessionNamespace.stubDictionary())
+        try await engine.approveProposal(proposerPubKey: proposal.proposer.publicKey, validating: SessionNamespace.stubDictionary())
 
         let topicB = networkingInteractor.subscriptions.last!
 
         XCTAssertTrue(networkingInteractor.didCallSubscribe)
         XCTAssert(cryptoMock.hasAgreementSecret(for: topicB), "Responder must store agreement key for topic B")
         XCTAssertEqual(networkingInteractor.didRespondOnTopic!, topicA, "Responder must respond on topic A")
-        XCTAssertTrue(sessionStorageMock.hasSession(forTopic: topicB), "Responder must persist session on topic B")
         XCTAssertTrue(pairingRegisterer.isActivateCalled)
     }
 
@@ -107,7 +98,8 @@ final class ApproveEngineTests: XCTestCase {
         let topicB = String.generateTopic()
         cryptoMock.setAgreementSecret(agreementKeys, topic: topicB)
         let proposal = SessionProposal.stub(proposerPubKey: AgreementPrivateKey().publicKey.hexRepresentation)
-        _ = try await engine.settle(topic: topicB, proposal: proposal, namespaces: SessionNamespace.stubDictionary(), pairingTopic: "")
+        try await engine.settle(topic: topicB, proposal: proposal, namespaces: SessionNamespace.stubDictionary(), pairingTopic: "")
+        XCTAssertTrue(sessionStorageMock.hasSession(forTopic: topicB), "Responder must persist session on topic B")
         XCTAssert(networkingInteractor.didSubscribe(to: topicB), "Responder must subscribe for topic B")
         XCTAssertTrue(networkingInteractor.didCallRequest, "Responder must send session settle payload on topic B")
     }
@@ -196,7 +188,7 @@ final class ApproveEngineTests: XCTestCase {
         
         XCTAssertTrue(verifyContextStore.getAll().count == 1)
         
-        _ = try await engine.approveProposal(proposerPubKey: proposal.proposer.publicKey, validating: SessionNamespace.stubDictionary())
+        try await engine.approveProposal(proposerPubKey: proposal.proposer.publicKey, validating: SessionNamespace.stubDictionary())
         
         XCTAssertTrue(verifyContextStore.getAll().isEmpty)
     }

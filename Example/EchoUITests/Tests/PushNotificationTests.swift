@@ -12,10 +12,12 @@ class PushNotificationTests: XCTestCase {
     }
     
     func testPushNotification() {
+        
         // Initiate connection & copy URI from dApp
         engine.routing.activate(app: .dapp)
         engine.dapp.connectButton.wait(until: \.exists).tap()
-
+        engine.dapp.newPairingButton.wait(until: \.exists).tap()
+        
         // Relies on existence of invisible label with uri in Dapp
         let uri = engine.dapp.instance.staticTexts.containing("wc:").firstMatch.label
         
@@ -24,10 +26,10 @@ class PushNotificationTests: XCTestCase {
         // Paste URI into Wallet & and allow connect
         engine.routing.activate(app: .wallet)
         
-        engine.wallet.getStartedButton.wait(until: \.exists).tap()
-        
         allowPushNotificationsIfNeeded(app: engine.wallet.instance)
-        engine.wallet.copyURIButton.wait(until: \.exists).tap()
+        
+        engine.wallet.getStartedButton.wait(until: \.exists).tap()
+        engine.wallet.pasteURIButton.wait(until: \.exists).tap()
         
         engine.wallet.alertUriTextField.wait(until: \.exists).tap()
         engine.wallet.alertUriTextField.typeText(uri)
@@ -45,10 +47,9 @@ class PushNotificationTests: XCTestCase {
         engine.routing.activate(app: .springboard)
         
         // Assert notification
-        
         let notification = engine.routing.springboard.otherElements.descendants(matching: .any)["NotificationShortLookView"]
         notification
-            .wait(until: \.exists, timeout: 60)
+            .wait(until: \.exists, timeout: 15)
             .tap()
         
         engine.wallet.instance.wait(until: \.exists)

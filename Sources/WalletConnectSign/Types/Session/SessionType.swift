@@ -40,16 +40,10 @@ internal enum SessionType {
         let request: Request
         let chainId: Blockchain
 
-        struct Request: Codable, Equatable, Expirable {
+        struct Request: Codable, Equatable {
             let method: String
             let params: AnyCodable
-            let expiryTimestamp: UInt64?
-            
-            func isExpired(currentDate: Date = Date()) -> Bool {
-                guard let expiry = expiryTimestamp else { return false }
-                let expiryDate = Date(timeIntervalSince1970: TimeInterval(expiry))
-                return expiryDate < currentDate
-            }
+            let expiry: UInt64?
         }
     }
 

@@ -17,8 +17,7 @@ final class KeychainStorageTests: XCTestCase {
         fakeKeychain = KeychainServiceFake()
         sut = KeychainStorage(
             keychainService: fakeKeychain,
-            serviceIdentifier: "",
-            accessGroup: "")
+            serviceIdentifier: "")
     }
 
     override func tearDown() {

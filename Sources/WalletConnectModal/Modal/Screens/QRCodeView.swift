@@ -59,13 +59,9 @@ struct QRCodeView: View {
             )
         )
         
-        if #available(macOS 11, *) {
-            return doc.imageUI(
-                size, label: Text("QR code with URI")
-            )!
-        } else {
-            return Image.init(sfSymbolName: "qrcode")
-        }
+        return doc.imageUI(
+            size, label: Text("QR code with URI")
+        )!
     }
 }
 

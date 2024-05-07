@@ -2,24 +2,10 @@ import Foundation
 import Combine
 
 public class PairingClient: PairingRegisterer, PairingInteracting, PairingClientProtocol {
-    enum Errors: Error {
-        case pairingDoesNotSupportRequiredMethod
-    }
     public var pingResponsePublisher: AnyPublisher<(String), Never> {
         pingResponsePublisherSubject.eraseToAnyPublisher()
     }
-    public var pairingDeletePublisher: AnyPublisher<(code: Int, message: String), Never> {
-        pairingDeleteRequestSubscriber.deletePublisherSubject.eraseToAnyPublisher()
-    }
-
-    public var pairingStatePublisher: AnyPublisher<Bool, Never> {
-        return pairingStateProvider.pairingStatePublisher
-    }
-
     public let socketConnectionStatusPublisher: AnyPublisher<SocketConnectionStatus, Never>
-    public var pairingExpirationPublisher: AnyPublisher<Pairing, Never> {
-        return expirationService.pairingExpirationPublisher
-    }
 
     private let pairingStorage: WCPairingStorage
     private let walletPairService: WalletPairService
@@ -31,17 +17,11 @@ public class PairingClient: PairingRegisterer, PairingInteracting, PairingClient
     private let networkingInteractor: NetworkInteracting
     private let pairingRequestsSubscriber: PairingRequestsSubscriber
     private let pairingsProvider: PairingsProvider
-    private let pairingDeleteRequester: PairingDeleteRequester
+    private let deletePairingService: DeletePairingService
     private let resubscribeService: PairingResubscribeService
     private let expirationService: ExpirationService
-    private let pairingDeleteRequestSubscriber: PairingDeleteRequestSubscriber
-    private let pairingStateProvider: PairingStateProvider
 
     private let cleanupService: PairingCleanupService
-
-    public var logsPublisher: AnyPublisher<Log, Never> {
-        return logger.logsPublisher
-    }
 
     init(
         pairingStorage: WCPairingStorage,
@@ -49,8 +29,7 @@ public class PairingClient: PairingRegisterer, PairingInteracting, PairingClient
         networkingInteractor: NetworkInteracting,
         logger: ConsoleLogging,
         walletPairService: WalletPairService,
-        pairingDeleteRequester: PairingDeleteRequester,
-        pairingDeleteRequestSubscriber: PairingDeleteRequestSubscriber,
+        deletePairingService: DeletePairingService,
         resubscribeService: PairingResubscribeService,
         expirationService: ExpirationService,
         pairingRequestsSubscriber: PairingRequestsSubscriber,
@@ -58,8 +37,7 @@ public class PairingClient: PairingRegisterer, PairingInteracting, PairingClient
         cleanupService: PairingCleanupService,
         pingService: PairingPingService,
         socketConnectionStatusPublisher: AnyPublisher<SocketConnectionStatus, Never>,
-        pairingsProvider: PairingsProvider,
-        pairingStateProvider: PairingStateProvider
+        pairingsProvider: PairingsProvider
     ) {
         self.pairingStorage = pairingStorage
         self.appPairService = appPairService
@@ -67,8 +45,7 @@ public class PairingClient: PairingRegisterer, PairingInteracting, PairingClient
         self.networkingInteractor = networkingInteractor
         self.socketConnectionStatusPublisher = socketConnectionStatusPublisher
         self.logger = logger
-        self.pairingDeleteRequester = pairingDeleteRequester
-        self.pairingDeleteRequestSubscriber = pairingDeleteRequestSubscriber
+        self.deletePairingService = deletePairingService
         self.appPairActivateService = appPairActivateService
         self.resubscribeService = resubscribeService
         self.expirationService = expirationService
@@ -76,7 +53,6 @@ public class PairingClient: PairingRegisterer, PairingInteracting, PairingClient
         self.pingService = pingService
         self.pairingRequestsSubscriber = pairingRequestsSubscriber
         self.pairingsProvider = pairingsProvider
-        self.pairingStateProvider = pairingStateProvider
         setUpPublishers()
         setUpExpiration()
     }
@@ -102,8 +78,8 @@ public class PairingClient: PairingRegisterer, PairingInteracting, PairingClient
         try await walletPairService.pair(uri)
     }
 
-    public func create(methods: [String]? = nil)  async throws -> WalletConnectURI {
-        return try await appPairService.create(supportedMethods: methods)
+    public func create()  async throws -> WalletConnectURI {
+        return try await appPairService.create()
     }
 
     public func activate(pairingTopic: String, peerMetadata: AppMetadata?) {
@@ -132,20 +108,11 @@ public class PairingClient: PairingRegisterer, PairingInteracting, PairingClient
     }
 
     public func disconnect(topic: String) async throws {
-        try await pairingDeleteRequester.delete(topic: topic)
+        try await deletePairingService.delete(topic: topic)
     }
 
     public func validatePairingExistance(_ topic: String) throws {
         _ = try pairingsProvider.getPairing(for: topic)
-    }
-
-    public func validateMethodSupport(topic: String, method: String) throws {
-        _ = try pairingsProvider.getPairing(for: topic)
-        let pairing = pairingStorage.getPairing(forTopic: topic)
-        guard let methods = pairing?.methods,
-              methods.contains(method) else {
-            throw Errors.pairingDoesNotSupportRequiredMethod
-        }
     }
 
     public func register<RequestParams>(method: ProtocolMethod) -> AnyPublisher<RequestSubscriptionPayload<RequestParams>, Never> {

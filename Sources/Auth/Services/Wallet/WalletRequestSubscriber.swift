@@ -6,7 +6,7 @@ class WalletRequestSubscriber {
     private let logger: ConsoleLogging
     private let kms: KeyManagementServiceProtocol
     private var publishers = [AnyCancellable]()
-    private let walletErrorResponder: Auth_WalletErrorResponder
+    private let walletErrorResponder: WalletErrorResponder
     private let pairingRegisterer: PairingRegisterer
     private let verifyClient: VerifyClientProtocol
     private let verifyContextStore: CodableStore<VerifyContext>
@@ -17,7 +17,7 @@ class WalletRequestSubscriber {
         networkingInteractor: NetworkInteracting,
         logger: ConsoleLogging,
         kms: KeyManagementServiceProtocol,
-        walletErrorResponder: Auth_WalletErrorResponder,
+        walletErrorResponder: WalletErrorResponder,
         pairingRegisterer: PairingRegisterer,
         verifyClient: VerifyClientProtocol,
         verifyContextStore: CodableStore<VerifyContext>
@@ -34,12 +34,12 @@ class WalletRequestSubscriber {
     
     private func subscribeForRequest() {
         pairingRegisterer.register(method: AuthRequestProtocolMethod())
-            .sink { [unowned self] (payload: RequestSubscriptionPayload<Auth_RequestParams>) in
+            .sink { [unowned self] (payload: RequestSubscriptionPayload<AuthRequestParams>) in
                 logger.debug("WalletRequestSubscriber: Received request")
-
+                
                 pairingRegisterer.setReceived(pairingTopic: payload.topic)
                 
-                let request = AuthRequest(id: payload.id, topic: payload.topic, payload: payload.request.payloadParams, requester: payload.request.requester.metadata)
+                let request = AuthRequest(id: payload.id, topic: payload.topic, payload: payload.request.payloadParams)
                 
                 Task(priority: .high) {
                     let assertionId = payload.decryptedPayload.sha256().toHexString()

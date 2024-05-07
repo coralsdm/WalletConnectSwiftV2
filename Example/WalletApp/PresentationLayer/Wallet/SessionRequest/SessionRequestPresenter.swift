@@ -15,12 +15,11 @@ final class SessionRequestPresenter: ObservableObject {
     var message: String {
         let message = try? sessionRequest.params.get([String].self)
         let decryptedMessage = message.map { String(data: Data(hex: $0.first ?? ""), encoding: .utf8) }
-        return (decryptedMessage ?? String(describing: sessionRequest.params.value)) ?? String(describing: sessionRequest.params.value)
+        return (decryptedMessage ?? "Failed to decrypt") ?? "Failed to decrypt"
     }
     
     @Published var showError = false
     @Published var errorMessage = "Error"
-    @Published var showSignedSheet = false
     
     private var disposeBag = Set<AnyCancellable>()
 
@@ -43,12 +42,9 @@ final class SessionRequestPresenter: ObservableObject {
     @MainActor
     func onApprove() async throws {
         do {
-            ActivityIndicatorManager.shared.start()
-            let showConnected = try await interactor.respondSessionRequest(sessionRequest: sessionRequest, importAccount: importAccount)
-            showConnected ? showSignedSheet.toggle() : router.dismiss()
-            ActivityIndicatorManager.shared.stop()
+            try await interactor.approve(sessionRequest: sessionRequest, importAccount: importAccount)
+            router.dismiss()
         } catch {
-            ActivityIndicatorManager.shared.stop()
             errorMessage = error.localizedDescription
             showError.toggle()
         }
@@ -56,39 +52,14 @@ final class SessionRequestPresenter: ObservableObject {
 
     @MainActor
     func onReject() async throws {
-        do {
-            ActivityIndicatorManager.shared.start()
-            try await interactor.respondError(sessionRequest: sessionRequest)
-            ActivityIndicatorManager.shared.stop()
-            router.dismiss()
-        } catch {
-            ActivityIndicatorManager.shared.stop()
-            errorMessage = error.localizedDescription
-            showError.toggle()
-        }
-    }
-    
-    func onSignedSheetDismiss() {
-        dismiss()
-    }
-    
-    func dismiss() {
+        try await interactor.reject(sessionRequest: sessionRequest)
         router.dismiss()
     }
 }
 
 // MARK: - Private functions
 private extension SessionRequestPresenter {
-    func setupInitialState() {
-        Web3Wallet.instance.requestExpirationPublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] requestId in
-                guard let self = self else { return }
-                if requestId == sessionRequest.id {
-                    dismiss()
-                }
-            }.store(in: &disposeBag)
-    }
+    func setupInitialState() {}
 }
 
 // MARK: - SceneViewModel

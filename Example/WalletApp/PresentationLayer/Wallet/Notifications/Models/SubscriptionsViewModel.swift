@@ -45,7 +45,6 @@ struct SubscriptionsViewModel: Identifiable {
     }
 
     var hasMessage: Bool {
-        /* return messagesCount != 0 Badge disabled */
-        return false
+        return messagesCount != 0
     }
 }

@@ -13,19 +13,6 @@ struct SessionProposalView: View {
             VStack {
                 Spacer()
                 
-                VStack {
-                    HStack {
-                        Spacer()
-                        Button(action: {
-                            presenter.dismiss()
-                        }) {
-                            Image(systemName: "xmark")
-                                .foregroundColor(.white)
-                                .padding()
-                        }
-                    }
-                    .padding()
-                }
                 VStack(spacing: 0) {
                     Image("header")
                         .resizable()
@@ -156,19 +143,13 @@ struct SessionProposalView: View {
         .alert(presenter.errorMessage, isPresented: $presenter.showError) {
             Button("OK", role: .cancel) {}
         }
-        .sheet(
-            isPresented: $presenter.showConnectedSheet,
-            onDismiss: presenter.onConnectedSheetDismiss
-        ) {
-            ConnectedSheetView(title: "Connected")
-        }
         .edgesIgnoringSafeArea(.all)
     }
 
     private func sessionProposalView(namespaces: ProposalNamespace) -> some View {
         VStack {
             VStack(alignment: .leading) {
-                TagsView(items: Array(namespaces.chains ?? [])) {
+                TagsView(items: Array(namespaces.chains ?? Set())) {
                     Text($0.absoluteString.uppercased())
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundColor(.whiteBackground)

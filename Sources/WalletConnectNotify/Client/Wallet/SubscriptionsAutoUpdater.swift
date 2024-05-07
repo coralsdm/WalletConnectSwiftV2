@@ -16,7 +16,7 @@ class SubscriptionsAutoUpdater {
     }
 
     private func updateSubscriptionsIfNeeded() {
-        for subscription in notifyStorage.getAllSubscriptions() {
+        for subscription in notifyStorage.getSubscriptions() {
             if shouldUpdate(subscription: subscription) {
                 let scope = Set(subscription.scope.filter{ $0.value.enabled == true }.keys)
                 let topic = subscription.topic

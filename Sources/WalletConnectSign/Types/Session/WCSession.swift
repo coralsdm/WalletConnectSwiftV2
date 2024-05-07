@@ -65,7 +65,7 @@ struct WCSession: SequenceObject, Equatable {
         events: Set<String>,
         accounts: Set<Account>,
         acknowledged: Bool,
-        expiryTimestamp: Int64
+        expiry: Int64
     ) {
         self.topic = topic
         self.pairingTopic = pairingTopic
@@ -78,7 +78,7 @@ struct WCSession: SequenceObject, Equatable {
         self.sessionProperties = sessionProperties
         self.requiredNamespaces = requiredNamespaces
         self.acknowledged = acknowledged
-        self.expiryDate = Date(timeIntervalSince1970: TimeInterval(expiryTimestamp))
+        self.expiryDate = Date(timeIntervalSince1970: TimeInterval(expiry))
     }
 #endif
 
@@ -158,7 +158,7 @@ struct WCSession: SequenceObject, Equatable {
     mutating func updateExpiry(to expiry: Int64) throws {
         let newExpiryDate = Date(timeIntervalSince1970: TimeInterval(expiry))
         let maxExpiryDate = Date(timeIntervalSinceNow: TimeInterval(WCSession.defaultTimeToLive))
-        guard newExpiryDate.millisecondsSince1970 >= (expiryDate.millisecondsSince1970 / 1000) && newExpiryDate <= maxExpiryDate else {
+        guard newExpiryDate >= expiryDate && newExpiryDate <= maxExpiryDate else {
             throw WalletConnectError.invalidUpdateExpiryValue
         }
         self.expiryDate = newExpiryDate

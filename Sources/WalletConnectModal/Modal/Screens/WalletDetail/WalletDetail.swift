@@ -18,9 +18,9 @@ struct WalletDetail: View {
                     HStack {
                         switch item {
                         case .native:
-                            Image(sfSymbolName: "iphone")
+                            Image(systemName: "iphone")
                         case .browser:
-                            Image(sfSymbolName: "safari")
+                            Image(systemName: "safari")
                         }
                         Text(item.rawValue.capitalized)
                     }
@@ -31,7 +31,7 @@ struct WalletDetail: View {
                     .contentShape(Rectangle())
                     .padding(.horizontal, 8)
                     .padding(.vertical, 8)
-                    .onTapGestureBackported {
+                    .onTapGesture {
                         withAnimation(.easeInOut(duration: 0.15)) {
                             viewModel.preferredPlatform = item
                         }
@@ -181,11 +181,11 @@ struct WalletDetail: View {
                     .foregroundColor(.foreground2)
                     .font(.system(size: 14).weight(.semibold))
                 
-                Image(sfSymbolName: "chevron.right")
+                Image(systemName: "chevron.right")
                     .foregroundColor(.foreground2)
             }
         }
-        .onTapGestureBackported {
+        .onTapGesture {
             viewModel.handle(.didTapAppStore)
         }
     }

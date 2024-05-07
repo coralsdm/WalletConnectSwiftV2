@@ -34,9 +34,6 @@ public class WalletConnectModal {
     }()
     
     struct Config {
-        static let sdkVersion: String = "swift-\(EnvironmentInfo.packageVersion)"
-        static let sdkType = "wcm"
-        
         let projectId: String
         var metadata: AppMetadata
         var sessionParams: SessionParams
@@ -92,11 +89,7 @@ extension WalletConnectModal {
         let modal = WalletConnectModalSheetController()
         vc.present(modal, animated: true)
     }
-
-    public static func create() -> UIViewController {
-        return WalletConnectModalSheetController()
-    }
-
+    
     private static func topViewController(_ base: UIViewController? = nil) -> UIViewController? {
         
         let base = base ?? UIApplication
@@ -153,7 +146,7 @@ public struct SessionParams {
     public static let `default`: Self = {
         let methods: Set<String> = ["eth_sendTransaction", "personal_sign", "eth_signTypedData"]
         let events: Set<String> = ["chainChanged", "accountsChanged"]
-        let blockchains = [Blockchain("eip155:1")!]
+        let blockchains: Set<Blockchain> = [Blockchain("eip155:1")!]
         let namespaces: [String: ProposalNamespace] = [
             "eip155": ProposalNamespace(
                 chains: blockchains,

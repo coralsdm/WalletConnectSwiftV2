@@ -26,8 +26,8 @@ public class Web3WalletClient {
     /// Publisher that sends authentication requests
     ///
     /// Wallet should subscribe on events in order to receive auth requests.
-    public var authenticateRequestPublisher: AnyPublisher<(request: AuthenticationRequest, context: VerifyContext?), Never> {
-        signClient.authenticateRequestPublisher.eraseToAnyPublisher()
+    public var authRequestPublisher: AnyPublisher<(request: AuthRequest, context: VerifyContext?), Never> {
+        authClient.authRequestPublisher.eraseToAnyPublisher()
     }
     
     /// Publisher that sends sessions on every sessions update
@@ -63,38 +63,8 @@ public class Web3WalletClient {
         signClient.sessionResponsePublisher.eraseToAnyPublisher()
     }
 
-    public var pairingDeletePublisher: AnyPublisher<(code: Int, message: String), Never> {
-        pairingClient.pairingDeletePublisher
-    }
-
-    public var pairingStatePublisher: AnyPublisher<Bool, Never> {
-        pairingClient.pairingStatePublisher
-    }
-
-    public var pairingExpirationPublisher: AnyPublisher<Pairing, Never> {
-        return pairingClient.pairingExpirationPublisher
-    }
-
-    public var logsPublisher: AnyPublisher<Log, Never> {
-        return signClient.logsPublisher
-            .merge(with: pairingClient.logsPublisher)
-            .eraseToAnyPublisher()
-    }
-
-    /// Publisher that sends session proposal expiration
-    public var sessionProposalExpirationPublisher: AnyPublisher<Session.Proposal, Never> {
-        return signClient.sessionProposalExpirationPublisher
-    }
-
-    public var pendingProposalsPublisher: AnyPublisher<[(proposal: Session.Proposal, context: VerifyContext?)], Never> {
-        return signClient.pendingProposalsPublisher
-    }
-
-    public var requestExpirationPublisher: AnyPublisher<RPCID, Never> {
-        return signClient.requestExpirationPublisher
-    }
-
     // MARK: - Private Properties
+    private let authClient: AuthClientProtocol
     private let signClient: SignClientProtocol
     private let pairingClient: PairingClientProtocol
     private let pushClient: PushClientProtocol
@@ -102,10 +72,12 @@ public class Web3WalletClient {
     private var account: Account?
 
     init(
+        authClient: AuthClientProtocol,
         signClient: SignClientProtocol,
         pairingClient: PairingClientProtocol,
         pushClient: PushClientProtocol
     ) {
+        self.authClient = authClient
         self.signClient = signClient
         self.pairingClient = pairingClient
         self.pushClient = pushClient
@@ -115,7 +87,7 @@ public class Web3WalletClient {
     /// - Parameters:
     ///   - proposalId: Session Proposal id
     ///   - namespaces: namespaces for given session, needs to contain at least required namespaces proposed by dApp.
-    public func approve(proposalId: String, namespaces: [String: SessionNamespace], sessionProperties: [String: String]? = nil) async throws -> Session {
+    public func approve(proposalId: String, namespaces: [String: SessionNamespace], sessionProperties: [String: String]? = nil) async throws {
         try await signClient.approve(proposalId: proposalId, namespaces: namespaces, sessionProperties: sessionProperties)
     }
 
@@ -123,8 +95,14 @@ public class Web3WalletClient {
     /// - Parameters:
     ///   - proposalId: Session Proposal id
     ///   - reason: Reason why the session proposal has been rejected. Conforms to CAIP25.
-    public func rejectSession(proposalId: String, reason: RejectionReason) async throws {
-        try await signClient.rejectSession(proposalId: proposalId, reason: reason)
+    public func reject(proposalId: String, reason: RejectionReason) async throws {
+        try await signClient.reject(proposalId: proposalId, reason: reason)
+    }
+    
+    /// For wallet to reject authentication request
+    /// - Parameter requestId: authentication request id
+    public func reject(requestId: RPCID) async throws {
+        try await authClient.reject(requestId: requestId)
     }
 
     /// For the wallet to update session namespaces
@@ -197,33 +175,17 @@ public class Web3WalletClient {
         signClient.getSessions()
     }
     
-    public func formatAuthMessage(payload: AuthPayload, account: Account) throws -> String {
-        try signClient.formatAuthMessage(payload: payload, account: account)
+    public func formatMessage(payload: AuthPayload, address: String) throws -> String {
+        try authClient.formatMessage(payload: payload, address: address)
     }
-
-    //---------------------------------------AUTH------------------------------------
+    
     /// For a wallet to respond on authentication request
     /// - Parameters:
     ///   - requestId: authentication request id
-    ///   - auths: CACAO objects
-    public func approveSessionAuthenticate(requestId: RPCID, auths: [AuthObject]) async throws -> Session? {
-        try await signClient.approveSessionAuthenticate(requestId: requestId, auths: auths)
+    ///   - signature: CACAO signature of requested message
+    public func respond(requestId: RPCID, signature: CacaoSignature, from account: Account) async throws {
+        try await authClient.respond(requestId: requestId, signature: signature, from: account)
     }
-
-    /// For wallet to reject authentication request
-    /// - Parameter requestId: authentication request id
-    public func rejectSession(requestId: RPCID) async throws {
-        try await signClient.rejectSession(requestId: requestId)
-    }
-
-
-    /// Query pending authentication requests
-    /// - Returns: Pending authentication requests
-    public func getPendingAuthRequests() throws -> [(AuthenticationRequest, VerifyContext?)] {
-        return try signClient.getPendingAuthRequests()
-    }
-    //---------------------------------------------------
-
     
     /// Query pending requests
     /// - Returns: Pending requests received from peer with `wc_sessionRequest` protocol method
@@ -231,21 +193,27 @@ public class Web3WalletClient {
     public func getPendingRequests(topic: String? = nil) -> [(request: Request, context: VerifyContext?)] {
         signClient.getPendingRequests(topic: topic)
     }
-
+    
+    /// Query pending proposals
+    /// - Returns: Pending proposals received from peer with `wc_sessionPropose` protocol method
     public func getPendingProposals(topic: String? = nil) -> [(proposal: Session.Proposal, context: VerifyContext?)] {
         signClient.getPendingProposals(topic: topic)
     }
-
-    public func buildSignedAuthObject(authPayload: AuthPayload, signature: CacaoSignature, account: Account) throws -> AuthObject {
-        try signClient.buildSignedAuthObject(authPayload: authPayload, signature: signature, account: account)
+    
+    /// - Parameter id: id of a wc_sessionRequest jsonrpc request
+    /// - Returns: json rpc record object for given id or nil if record for give id does not exits
+    public func getSessionRequestRecord(id: RPCID) -> (request: Request, context: VerifyContext?)? {
+        signClient.getSessionRequestRecord(id: id)
     }
-
-    public func buildAuthPayload(payload: AuthPayload, supportedEVMChains: [Blockchain], supportedMethods: [String]) throws -> AuthPayload {
-        try signClient.buildAuthPayload(payload: payload, supportedEVMChains: supportedEVMChains, supportedMethods: supportedMethods)
+    
+    /// Query pending authentication requests
+    /// - Returns: Pending authentication requests
+    public func getPendingRequests() throws -> [(AuthRequest, VerifyContext?)] {
+        try authClient.getPendingRequests()
     }
-
-    public func register(deviceToken: Data, enableEncrypted: Bool = false) async throws {
-        try await pushClient.register(deviceToken: deviceToken, enableEncrypted: enableEncrypted)
+    
+    public func registerPushClient(deviceToken: Data) async throws {
+        try await pushClient.register(deviceToken: deviceToken)
     }
     
     /// Delete all stored data such as: pairings, sessions, keys
@@ -262,7 +230,7 @@ public class Web3WalletClient {
 
 #if DEBUG
 extension Web3WalletClient {
-    public func register(deviceToken: String, enableEncrypted: Bool = false) async throws {
+    public func registerPushClient(deviceToken: String) async throws {
         try await pushClient.register(deviceToken: deviceToken)
     }
 }
