@@ -13,18 +13,12 @@ final class WalletPresenter: ObservableObject {
     private let importAccount: ImportAccount
     
     private let app: Application
-    private var isPairingTimer: Timer?
-
+    
     @Published var sessions = [Session]()
     
-    @Published var showPairingLoading = false {
-        didSet {
-            handlePairingLoadingChanged()
-        }
-    }
+    @Published var showPairingLoading = false
     @Published var showError = false
     @Published var errorMessage = "Error"
-    @Published var showConnectedSheet = false
     
     private var disposeBag = Set<AnyCancellable>()
 
@@ -45,7 +39,7 @@ final class WalletPresenter: ObservableObject {
     
     func onAppear() {
         showPairingLoading = app.requestSent
-        setUpPairingIndicatorRemoval()
+        removePairingIndicator()
 
         let pendingRequests = interactor.getPendingRequests()
         if let request = pendingRequests.first(where: { $0.context != nil }) {
@@ -58,15 +52,15 @@ final class WalletPresenter: ObservableObject {
     }
 
     func onPasteUri() {
-        router.presentPaste { [weak self] uriString in
-            do {
-                let uri = try WalletConnectURI(uriString: uriString)
-                print("URI: \(uri)")
-                self?.pair(uri: uri)
-            } catch {
-                self?.errorMessage = error.localizedDescription
+        router.presentPaste { [weak self] uri in
+            guard let uri = WalletConnectURI(string: uri) else {
+                self?.errorMessage = Errors.invalidUri(uri: uri).localizedDescription
                 self?.showError.toggle()
+                return
             }
+            print("URI: \(uri)")
+            self?.pair(uri: uri)
+
         } onError: { [weak self] error in
             print(error.localizedDescription)
             self?.router.dismiss()
@@ -74,44 +68,24 @@ final class WalletPresenter: ObservableObject {
     }
 
     func onScanUri() {
-        router.presentScan { [weak self] uriString in
-            do {
-                let uri = try WalletConnectURI(uriString: uriString)
-                print("URI: \(uri)")
-                self?.pair(uri: uri)
-                self?.router.dismiss()
-            } catch {
-                self?.errorMessage = error.localizedDescription
+        router.presentScan { [weak self] uri in
+            guard let uri = WalletConnectURI(string: uri) else {
+                self?.errorMessage = Errors.invalidUri(uri: uri).localizedDescription
                 self?.showError.toggle()
+                return
             }
-        } onError: { [weak self] error in
-            print(error.localizedDescription)
+            print("URI: \(uri)")
+            self?.pair(uri: uri)
             self?.router.dismiss()
+        } onError: { error in
+            print(error.localizedDescription)
+            self.router.dismiss()
         }
     }
-
     
     func removeSession(at indexSet: IndexSet) async {
         if let index = indexSet.first {
-            do {
-                ActivityIndicatorManager.shared.start()
-                try await interactor.disconnectSession(session: sessions[index])
-                ActivityIndicatorManager.shared.stop()
-            } catch {
-                ActivityIndicatorManager.shared.stop()
-                sessions = sessions
-                AlertPresenter.present(message: error.localizedDescription, type: .error)
-            }
-        }
-    }
-
-    private func handlePairingLoadingChanged() {
-        isPairingTimer?.invalidate()
-
-        if showPairingLoading {
-            isPairingTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: false) { _ in
-                AlertPresenter.present(message: "Pairing takes longer then expected, check your internet connection or try again", type: .warning)
-            }
+            try? await interactor.disconnectSession(session: sessions[index])
         }
     }
 }
@@ -134,8 +108,11 @@ extension WalletPresenter {
     private func pair(uri: WalletConnectURI) {
         Task.detached(priority: .high) { @MainActor [unowned self] in
             do {
+                self.showPairingLoading = true
+                self.removePairingIndicator()
                 try await self.interactor.pair(uri: uri)
             } catch {
+                self.showPairingLoading = false
                 self.errorMessage = error.localizedDescription
                 self.showError.toggle()
             }
@@ -148,13 +125,11 @@ extension WalletPresenter {
         }
         pair(uri: uri)
     }
-
-    private func setUpPairingIndicatorRemoval() {
-        Web3Wallet.instance.pairingStatePublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] isPairing in
-            self?.showPairingLoading = isPairing
-        }.store(in: &disposeBag)
+    
+    private func removePairingIndicator() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            self.showPairingLoading = false
+        }
     }
 }
 
@@ -177,4 +152,3 @@ extension WalletPresenter.Errors: LocalizedError {
         }
     }
 }
-

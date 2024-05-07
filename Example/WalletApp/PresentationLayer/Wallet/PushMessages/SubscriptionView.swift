@@ -1,5 +1,4 @@
 import SwiftUI
-import Web3ModalUI
 
 struct SubscriptionView: View {
 
@@ -34,11 +33,6 @@ struct SubscriptionView: View {
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
                 }
-
-                if presenter.isMoreDataAvailable {
-                    lastRowView()
-                        .listRowSeparator(.hidden)
-                }
             }
             .listStyle(PlainListStyle())
         }
@@ -49,16 +43,15 @@ struct SubscriptionView: View {
     private func notificationView(pushMessage: NotifyMessageViewModel) -> some View {
         VStack(alignment: .center) {
             HStack(spacing: 12) {
-                CacheAsyncImage(url: presenter.messageIconUrl(message: pushMessage)) { phase in
+                CacheAsyncImage(url: URL(string: pushMessage.imageUrl)) { phase in
                     if let image = phase.image {
                         image
                             .resizable()
                             .frame(width: 48, height: 48)
-                            .background(Color.black.opacity(0.05))
+                            .background(Color.black)
                             .cornerRadius(10, corners: .allCorners)
                     } else {
                         Color.black
-                            .opacity(0.05)
                             .frame(width: 48, height: 48)
                             .cornerRadius(10, corners: .allCorners)
                     }
@@ -78,7 +71,7 @@ struct SubscriptionView: View {
                             .font(.system(size: 11))
                     }
 
-                    Text(.init(pushMessage.subtitle))
+                    Text(pushMessage.subtitle)
                         .foregroundColor(.Foreground175)
                         .font(.system(size: 13))
 
@@ -104,24 +97,20 @@ struct SubscriptionView: View {
             .padding(.top, 56.0)
             .padding(.bottom, 8.0)
 
-            Group {
-                Text(presenter.subscriptionViewModel.name)
-                    .font(.large700)
-                    .foregroundColor(.Foreground100)
-                    .padding(.bottom, 8.0)
+            Text(presenter.subscriptionViewModel.name)
+                .font(.large700)
+                .foregroundColor(.Foreground100)
+                .padding(.bottom, 8.0)
 
-                Text(presenter.subscriptionViewModel.domain)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.Foreground200)
-                    .padding(.bottom, 16.0)
+            Text(presenter.subscriptionViewModel.domain)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.Foreground200)
+                .padding(.bottom, 16.0)
 
-                Text(presenter.subscriptionViewModel.description)
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundColor(.Foreground100)
-                    .padding(.bottom, 16.0)
-            }
-            .padding(.horizontal, 20)
-            .multilineTextAlignment(.center)
+            Text(presenter.subscriptionViewModel.description)
+                .font(.system(size: 14, weight: .regular))
+                .foregroundColor(.Foreground100)
+                .padding(.bottom, 16.0)
 
             Menu {
                 Button(role: .destructive, action: {
@@ -151,41 +140,20 @@ struct SubscriptionView: View {
     }
 
     func emptyStateView() -> some View {
-        VStack(spacing: 0) {
-            Image("subscription_empty_icon")
-                .padding(.bottom, 24)
+        VStack(spacing: 10) {
+            Image(systemName: "bell.badge.fill")
+                .resizable()
+                .frame(width: 32, height: 32)
+                .aspectRatio(contentMode: .fit)
+                .foregroundColor(.grey50)
 
-            Text("You’re ready to go")
-                .font(.large700)
-                .foregroundColor(.Foreground100)
-                .padding(.bottom, 8)
-
-            Text("All new notifications will appear here.")
-                .font(.paragraph500)
-                .foregroundColor(.Foreground150)
+            Text("Notifications from connected apps will appear here. To enable notifications, visit the app in your browser and look for a \(Image(systemName: "bell.fill")) notifications toggle \(Image(systemName: "switch.2"))")
+                .foregroundColor(.grey50)
+                .font(.system(size: 15, weight: .regular, design: .rounded))
+                .multilineTextAlignment(.center)
+                .lineSpacing(4)
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 410)
-    }
-
-    func lastRowView() -> some View {
-        VStack {
-            switch presenter.loadingState {
-            case .loading:
-                HStack {
-                    Spacer()
-                    ProgressView()
-                    Spacer()
-                }
-                .padding(.bottom, 24)
-            case .idle:
-                EmptyView()
-            }
-        }
-        .frame(height: 50)
-        .onAppear {
-            presenter.loadMoreMessages()
-        }
+        .padding(20)
     }
 }
 

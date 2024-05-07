@@ -25,23 +25,23 @@ struct ModalContainerView: View {
             Color.thickOverlay
                 .colorScheme(.light)
                 .opacity(showModal ? 1 : 0)
-                .onTapGestureBackported {
-                    withAnimation {
-                        showModal = false
-                    }
+                .transform {
+                    #if os(iOS)
+                        $0.onTapGesture {
+                            withAnimation {
+                                showModal = false
+                            }
+                        }
+                    #endif
                 }
         )
         .edgesIgnoringSafeArea(.all)
         .transform {
-            #if os(iOS)
-                if #available(iOS 14.0, *) {
-                    $0.ignoresSafeArea(.keyboard, edges: .bottom)
-                } else {
-                    $0
-                }
-            #else
+            if #available(iOS 14.0, *) {
+                $0.ignoresSafeArea(.keyboard, edges: .bottom)
+            } else {
                 $0
-            #endif
+            }
         }
         .onChangeBackported(of: showModal, perform: { newValue in
             if newValue == false {

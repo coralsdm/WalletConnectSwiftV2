@@ -7,19 +7,16 @@ public protocol KeyManagementServiceProtocol {
     func setPublicKey(publicKey: AgreementPublicKey, for topic: String) throws
     func setAgreementSecret(_ agreementSecret: AgreementKeys, topic: String) throws
     func setSymmetricKey(_ symmetricKey: SymmetricKey, for topic: String) throws
-    func setTopic(_ topic: String, for key: String) throws
     func getPrivateKey(for publicKey: AgreementPublicKey) throws -> AgreementPrivateKey?
     func getAgreementSecret(for topic: String) -> AgreementKeys?
     func getSymmetricKey(for topic: String) -> SymmetricKey?
     func getSymmetricKeyRepresentable(for topic: String) -> Data?
     func getPublicKey(for topic: String) -> AgreementPublicKey?
-    func getTopic(for key: String) -> String?
     func deletePrivateKey(for publicKey: String)
     func deleteAgreementSecret(for topic: String)
     func deleteSymmetricKey(for topic: String)
     func deletePublicKey(for topic: String)
     func deleteAll() throws
-    func deleteTopic(for key: String)
     func performKeyAgreement(selfPublicKey: AgreementPublicKey, peerPublicKey hexRepresentation: String) throws -> AgreementKeys
 }
 
@@ -66,14 +63,6 @@ public class KeyManagementService: KeyManagementServiceProtocol {
         try keychain.add(topic, forKey: key)
     }
 
-    public func deleteTopic(for key: String) {
-        do {
-            try keychain.delete(key: key)
-        } catch {
-            print("Error deleting topic: \(error)")
-        }
-    }
-
     public func getSymmetricKey(for topic: String) -> SymmetricKey? {
         do {
             return try keychain.read(key: topic) as SymmetricKey
@@ -93,7 +82,7 @@ public class KeyManagementService: KeyManagementServiceProtocol {
     public func getPrivateKey(for publicKey: AgreementPublicKey) throws -> AgreementPrivateKey? {
         do {
             return try keychain.read(key: publicKey.hexRepresentation) as AgreementPrivateKey
-        } catch KeychainError.itemNotFound {
+        } catch let error where (error as? KeychainError)?.status == errSecItemNotFound {
             return nil
         } catch {
             throw error

@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct GetAWalletView: View {
-    let wallets: [Wallet]
-    let onWalletTap: (Wallet) -> Void
+    let wallets: [Listing]
+    let onWalletTap: (Listing) -> Void
     let navigateToExternalLink: (URL) -> Void
     
     var body: some View {
@@ -22,7 +22,7 @@ struct GetAWalletView: View {
                             
                             Spacer()
                             
-                            Image(sfSymbolName: "chevron.right")
+                            Image(systemName: "chevron.right")
                                 .font(.system(.footnote).weight(.semibold))
                         }
                     }
@@ -71,7 +71,7 @@ struct GetAWalletView: View {
 struct GetAWalletView_Previews: PreviewProvider {
     static var previews: some View {
         GetAWalletView(
-            wallets: Wallet.stubList,
+            wallets: Listing.stubList,
             onWalletTap: { _ in },
             navigateToExternalLink: { _ in }
         )

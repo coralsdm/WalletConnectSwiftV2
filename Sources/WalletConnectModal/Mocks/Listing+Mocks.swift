@@ -2,40 +2,64 @@ import Foundation
 
 #if DEBUG
 
-extension Wallet {
-    static let stubList: [Wallet] = [
-        Wallet(
+extension Listing {
+    static let stubList: [Listing] = [
+        Listing(
             id: UUID().uuidString,
             name: "Sample Wallet",
-            homepage: "https://example.com/cool",
-            imageId: "0528ee7e-16d1-4089-21e3-bbfb41933100",
+            homepage: "https://example.com",
             order: 1,
-            mobileLink: "https://sample.com/foo/universal",
-            desktopLink: "sampleapp://deeplink",
-            webappLink: "https://sample.com/foo/webapp",
-            appStore: ""
+            imageId: UUID().uuidString,
+            app: Listing.App(
+                ios: "https://example.com/download-ios",
+                browser: "https://example.com/download-safari"
+            ),
+            mobile: .init(
+                native: "sampleapp://deeplink",
+                universal: "https://example.com/universal"
+            ),
+            desktop: .init(
+                native: nil,
+                universal: "https://example.com/universal"
+            )
         ),
-        Wallet(
+        Listing(
             id: UUID().uuidString,
-            name: "Cool Wallet",
-            homepage: "https://example.com/cool",
-            imageId: "5195e9db-94d8-4579-6f11-ef553be95100",
+            name: "Awesome Wallet",
+            homepage: "https://example.com/awesome",
             order: 2,
-            mobileLink: "awsomeapp://",
-            desktopLink: "awsomeapp://deeplink",
-            webappLink: "https://awesome.com/foo/webapp",
-            appStore: ""
+            imageId: UUID().uuidString,
+            app: Listing.App(
+                ios: "https://example.com/download-ios",
+                browser: "https://example.com/download-safari"
+            ),
+            mobile: .init(
+                native: "awesomeapp://deeplink",
+                universal: "https://example.com/awesome/universal"
+            ),
+            desktop: .init(
+                native: nil,
+                universal: "https://example.com/awesome/universal"
+            )
         ),
-        Wallet(
+        Listing(
             id: UUID().uuidString,
             name: "Cool Wallet",
             homepage: "https://example.com/cool",
-            imageId: "3913df81-63c2-4413-d60b-8ff83cbed500",
             order: 3,
-            mobileLink: "https://cool.com/foo/universal",
-            desktopLink: "coolapp://deeplink",
-            webappLink: "https://cool.com/foo/webapp",
-            appStore: ""
+            imageId: UUID().uuidString,
+            app: Listing.App(
+                ios: "https://example.com/download-ios",
+                browser: "https://example.com/download-safari"
+            ),
+            mobile: .init(
+                native: "coolapp://deeplink",
+                universal: "https://example.com/cool/universal"
+            ),
+            desktop: .init(
+                native: nil,
+                universal: "https://example.com/cool/universal"
+            )
         )
     ]
 }

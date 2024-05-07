@@ -85,7 +85,6 @@ Pod::Spec.new do |spec|
   spec.subspec 'WalletConnectSign' do |ss|
     ss.source_files = 'Sources/WalletConnectSign/**/*.{h,m,swift}'
     ss.dependency 'WalletConnectSwiftV2/WalletConnectPairing'
-    ss.dependency 'WalletConnectSwiftV2/WalletConnectSigner'
     ss.dependency 'WalletConnectSwiftV2/WalletConnectVerify'
   end
 
@@ -102,10 +101,17 @@ Pod::Spec.new do |spec|
     ss.dependency 'WalletConnectSwiftV2/WalletConnectNetworking'
   end
 
+  spec.subspec 'WalletConnectHistory' do |ss|
+    ss.source_files = 'Sources/WalletConnectHistory/**/*.{h,m,swift}'
+    ss.dependency 'WalletConnectSwiftV2/WalletConnectRelay'
+    ss.dependency 'WalletConnectSwiftV2/HTTPClient'
+  end
+
   spec.subspec 'WalletConnectChat' do |ss|
     ss.source_files = 'Sources/Chat/**/*.{h,m,swift}'
     ss.dependency 'WalletConnectSwiftV2/WalletConnectSync'
     ss.dependency 'WalletConnectSwiftV2/WalletConnectIdentity'
+    ss.dependency 'WalletConnectSwiftV2/WalletConnectHistory'
   end
 
   spec.subspec 'WalletConnectSync' do |ss|
@@ -182,13 +188,5 @@ Pod::Spec.new do |spec|
   
   spec.subspec 'HTTPClient' do |ss|
     ss.source_files = 'Sources/HTTPClient/**/*.{h,m,swift}'
-  end
-  
-  spec.subspec 'WalletConnectModal' do |ss|
-    ss.source_files = 'Sources/WalletConnectModal/**/*.{h,m,swift}'
-    ss.dependency 'WalletConnectSwiftV2/WalletConnectSign'
-    ss.dependency 'DSF_QRCode', '~> 16.1.1'
-    ss.platform = :ios
-    # TODO: Re-add macOS nad tvOS support once fixed
   end
 end

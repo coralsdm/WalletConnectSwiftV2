@@ -10,7 +10,7 @@ actor WalletRespondService {
     private let rpcHistory: RPCHistory
     private let verifyContextStore: CodableStore<VerifyContext>
     private let logger: ConsoleLogging
-    private let walletErrorResponder: Auth_WalletErrorResponder
+    private let walletErrorResponder: WalletErrorResponder
     private let pairingRegisterer: PairingRegisterer
 
     init(
@@ -19,7 +19,7 @@ actor WalletRespondService {
         kms: KeyManagementService,
         rpcHistory: RPCHistory,
         verifyContextStore: CodableStore<VerifyContext>,
-        walletErrorResponder: Auth_WalletErrorResponder,
+        walletErrorResponder: WalletErrorResponder,
         pairingRegisterer: PairingRegisterer
     ) {
         self.networkingInteractor = networkingInteractor
@@ -53,21 +53,21 @@ actor WalletRespondService {
     }
 
     func respondError(requestId: RPCID) async throws {
-        try await walletErrorResponder.respondError(AuthErrors.userRejeted, requestId: requestId)
+        try await walletErrorResponder.respondError(AuthError.userRejeted, requestId: requestId)
         verifyContextStore.delete(forKey: requestId.string)
     }
 
-    private func getAuthRequestParams(requestId: RPCID) throws -> Auth_RequestParams {
+    private func getAuthRequestParams(requestId: RPCID) throws -> AuthRequestParams {
         guard let request = rpcHistory.get(recordId: requestId)?.request
         else { throw Errors.recordForIdNotFound }
 
-        guard let authRequestParams = try request.params?.get(Auth_RequestParams.self)
+        guard let authRequestParams = try request.params?.get(AuthRequestParams.self)
         else { throw Errors.malformedAuthRequestParams }
 
         return authRequestParams
     }
 
-    private func generateAgreementKeys(requestParams: Auth_RequestParams) throws -> (topic: String, keys: AgreementKeys) {
+    private func generateAgreementKeys(requestParams: AuthRequestParams) throws -> (topic: String, keys: AgreementKeys) {
         let peerPubKey = try AgreementPublicKey(hex: requestParams.requester.publicKey)
         let topic = peerPubKey.rawRepresentation.sha256().toHexString()
         let selfPubKey = try kms.createX25519KeyPair()

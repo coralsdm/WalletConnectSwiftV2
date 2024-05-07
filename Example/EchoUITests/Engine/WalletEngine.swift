@@ -10,17 +10,13 @@ struct WalletEngine {
     // Onboarding
     
     var getStartedButton: XCUIElement {
-        instance.buttons["Create new account"]
+        instance.buttons["Get Started"]
     }
     
     // MainScreen
 
-    var allow: XCUIElement {
-        instance.buttons["Allow"]
-    }
-    
-    var copyURIButton: XCUIElement {
-        instance.firstMatch.buttons.element(matching: .button, identifier: "copy")
+    var pasteURIButton: XCUIElement {
+        instance.buttons["copy"]
     }
 
     var alertUriTextField: XCUIElement {

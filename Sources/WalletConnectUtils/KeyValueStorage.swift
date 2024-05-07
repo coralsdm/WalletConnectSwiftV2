@@ -12,8 +12,6 @@ public protocol KeyValueStorage {
     func removeObject(forKey defaultName: String)
     /// Returns a dictionary that contains a union of all key-value pairs in the domains in the search list.
     func dictionaryRepresentation() -> [String: Any]
-
-    func bool(forKey defaultName: String) -> Bool
 }
 
 extension UserDefaults: KeyValueStorage {}
@@ -53,12 +51,6 @@ public final class RuntimeKeyValueStorage: KeyValueStorage {
     public func dictionaryRepresentation() -> [String: Any] {
         queue.sync {
             return storage
-        }
-    }
-
-    public func bool(forKey defaultName: String) -> Bool {
-        queue.sync {
-            return storage[defaultName] as? Bool ?? false
         }
     }
 }

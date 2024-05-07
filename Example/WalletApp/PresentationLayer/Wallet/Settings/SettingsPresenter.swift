@@ -1,7 +1,6 @@
 import UIKit
 import Combine
 import WalletConnectNetworking
-import Web3Wallet
 
 final class SettingsPresenter: ObservableObject {
 
@@ -39,17 +38,10 @@ final class SettingsPresenter: ObservableObject {
         return deviceToken
     }
 
-    func browserPressed() {
-        router.presentBrowser()
-    }
-
-    func logoutPressed() async throws {
-        guard let account = accountStorage.importAccount?.account else { return }
-        try await interactor.notifyUnregister(account: account)
+    func logoutPressed() {
         accountStorage.importAccount = nil
-        try await Web3Wallet.instance.cleanup()
         UserDefaults.standard.set(nil, forKey: "deviceToken")
-        await router.presentWelcome()
+        router.presentWelcome()
     }
 }
 

@@ -31,19 +31,13 @@ extension WCSession {
                 events: [],
                 accounts: Account.stubSet(),
                 acknowledged: acknowledged,
-                expiryTimestamp: Int64(expiryDate.timeIntervalSince1970))
+                expiry: Int64(expiryDate.timeIntervalSince1970))
         }
 }
 
 extension Account {
     static func stubSet() -> Set<Account> {
         return Set(["chainstd:0:0", "chainstd:1:1", "chainstd:2:2"].map { Account($0)! })
-    }
-}
-
-extension Account {
-    static func stub() -> Account {
-        return Account("eip155:1:0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")!
     }
 }
 

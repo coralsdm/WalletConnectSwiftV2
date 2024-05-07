@@ -3,6 +3,10 @@ import Foundation
 extension Pair {
 
     public struct Config {
-        let metadata: AppMetadata
+        public let metadata: AppMetadata
+
+        public init(metadata: AppMetadata) {
+            self.metadata = metadata
+        }
     }
 }

@@ -29,6 +29,8 @@ public class NetworkingInteractor: NetworkInteracting {
 
     public var networkConnectionStatusPublisher: AnyPublisher<NetworkConnectionStatus, Never>
     public var socketConnectionStatusPublisher: AnyPublisher<SocketConnectionStatus, Never>
+    
+    private let networkMonitor: NetworkMonitoring
 
     public init(
         relayClient: RelayClient,
@@ -41,7 +43,8 @@ public class NetworkingInteractor: NetworkInteracting {
         self.rpcHistory = rpcHistory
         self.logger = logger
         self.socketConnectionStatusPublisher = relayClient.socketConnectionStatusPublisher
-        self.networkConnectionStatusPublisher = relayClient.networkConnectionStatusPublisher
+        self.networkMonitor = NetworkMonitor()
+        self.networkConnectionStatusPublisher = networkMonitor.networkConnectionStatusPublisher
         setupRelaySubscribtion()
     }
 
@@ -136,45 +139,6 @@ public class NetworkingInteractor: NetworkInteracting {
             .eraseToAnyPublisher()
     }
 
-    public func awaitResponse<Request: Codable, Response: Codable>(
-        request: RPCRequest,
-        topic: String,
-        method: ProtocolMethod,
-        requestOfType: Request.Type,
-        responseOfType: Response.Type,
-        envelopeType: Envelope.EnvelopeType
-    ) async throws -> Response {
-        return try await withCheckedThrowingContinuation { [unowned self] continuation in
-            var response, error: AnyCancellable?
-
-            let cancel: () -> Void = {
-                response?.cancel()
-                error?.cancel()
-            }
-
-            response = responseSubscription(on: method)
-                .sink { (payload: ResponseSubscriptionPayload<Request, Response>) in
-                    cancel()
-                    continuation.resume(with: .success(payload.response))
-                }
-
-            error = responseErrorSubscription(on: method)
-                .sink { (payload: ResponseSubscriptionErrorPayload<Request>) in
-                    cancel()
-                    continuation.resume(throwing: payload.error)
-                }
-
-            Task(priority: .high) {
-                do {
-                    try await self.request(request, topic: topic, protocolMethod: method, envelopeType: envelopeType)
-                } catch {
-                    cancel()
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
-    }
-
     public func responseSubscription<Request: Codable, Response: Codable>(on request: ProtocolMethod) -> AnyPublisher<ResponseSubscriptionPayload<Request, Response>, Never> {
         return responsePublisher
             .filter { rpcRequest in
@@ -202,28 +166,14 @@ public class NetworkingInteractor: NetworkInteracting {
 
     public func request(_ request: RPCRequest, topic: String, protocolMethod: ProtocolMethod, envelopeType: Envelope.EnvelopeType) async throws {
         try rpcHistory.set(request, forTopic: topic, emmitedBy: .local)
-
-        do {
-            let message = try serializer.serialize(topic: topic, encodable: request, envelopeType: envelopeType)
-
-            try await relayClient.publish(topic: topic,
-                payload: message,
-                tag: protocolMethod.requestConfig.tag,
-                prompt: protocolMethod.requestConfig.prompt,
-                ttl: protocolMethod.requestConfig.ttl)
-        } catch {
-            if let id = request.id {
-                rpcHistory.delete(id: id)
-            }
-            throw error
-        }
+        let message = try serializer.serialize(topic: topic, encodable: request, envelopeType: envelopeType)
+        try await relayClient.publish(topic: topic, payload: message, tag: protocolMethod.requestConfig.tag, prompt: protocolMethod.requestConfig.prompt, ttl: protocolMethod.requestConfig.ttl)
     }
 
     public func respond(topic: String, response: RPCResponse, protocolMethod: ProtocolMethod, envelopeType: Envelope.EnvelopeType) async throws {
-        try rpcHistory.validate(response)
+        try rpcHistory.resolve(response)
         let message = try serializer.serialize(topic: topic, encodable: response, envelopeType: envelopeType)
         try await relayClient.publish(topic: topic, payload: message, tag: protocolMethod.responseConfig.tag, prompt: protocolMethod.responseConfig.prompt, ttl: protocolMethod.responseConfig.ttl)
-        try rpcHistory.resolve(response)
     }
 
     public func respondSuccess(topic: String, requestId: RPCID, protocolMethod: ProtocolMethod, envelopeType: Envelope.EnvelopeType) async throws {
@@ -266,7 +216,8 @@ public class NetworkingInteractor: NetworkInteracting {
 
     private func handleResponse(topic: String, response: RPCResponse, publishedAt: Date, derivedTopic: String?) {
         do {
-            let record = try rpcHistory.resolve(response)
+            try rpcHistory.resolve(response)
+            let record = rpcHistory.get(recordId: response.id!)!
             responsePublisherSubject.send((topic, record.request, response, publishedAt, derivedTopic))
         } catch {
             logger.debug("Handle json rpc response error: \(error)")

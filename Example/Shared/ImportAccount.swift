@@ -91,11 +91,11 @@ enum ImportAccount: Codable {
         }
     }
 
-    func onSign(message: String) -> CacaoSignature {
+    func onSign(message: String) -> SigningResult {
         let privateKey = Data(hex: privateKey)
         let signer = MessageSignerFactory(signerFactory: DefaultSignerFactory()).create()
         let signature = try! signer.sign(message: message, privateKey: privateKey, type: .eip191)
-        return signature
+        return .signed(signature)
     }
 
     static func new() -> ImportAccount {

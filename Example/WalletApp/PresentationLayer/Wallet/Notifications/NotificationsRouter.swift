@@ -12,8 +12,7 @@ final class NotificationsRouter {
     }
 
     func presentNotifications(subscription: NotifySubscription) {
-        let module = SubscriptionModule.create(app: app, subscription: subscription)
-        module.hidesBottomBarWhenPushed = true
-        module.push(from: viewController)
+        SubscriptionModule.create(app: app, subscription: subscription)
+            .push(from: viewController)
     }
 }

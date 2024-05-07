@@ -14,18 +14,15 @@ public actor VerifyClient: VerifyClientProtocol {
     let originVerifier: OriginVerifier
     let assertionRegistrer: AssertionRegistrer
     let appAttestationRegistrer: AppAttestationRegistrer
-    let verifyContextFactory: VerifyContextFactory
 
     init(
         originVerifier: OriginVerifier,
         assertionRegistrer: AssertionRegistrer,
-        appAttestationRegistrer: AppAttestationRegistrer,
-        verifyContextFactory: VerifyContextFactory = VerifyContextFactory()
+        appAttestationRegistrer: AppAttestationRegistrer
     ) {
         self.originVerifier = originVerifier
         self.assertionRegistrer = assertionRegistrer
         self.appAttestationRegistrer = appAttestationRegistrer
-        self.verifyContextFactory = verifyContextFactory
     }
 
     public func registerAttestationIfNeeded() async throws {
@@ -37,7 +34,23 @@ public actor VerifyClient: VerifyClientProtocol {
     }
     
     nonisolated public func createVerifyContext(origin: String?, domain: String, isScam: Bool?) -> VerifyContext {
-        verifyContextFactory.createVerifyContext(origin: origin, domain: domain, isScam: isScam)
+        guard isScam == nil else {
+            return VerifyContext(
+                origin: origin,
+                validation: .scam
+            )
+        }
+        if let origin, let originUrl = URL(string: origin), let domainUrl = URL(string: domain) {
+            return VerifyContext(
+                origin: origin,
+                validation: (originUrl.host == domainUrl.host) ? .valid : .invalid
+            )
+        } else {
+            return VerifyContext(
+                origin: origin,
+                validation: .unknown
+            )
+        }
     }
 
     public func registerAssertion() async throws {

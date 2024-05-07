@@ -30,7 +30,7 @@ final class ExpirationServiceTestsTests: XCTestCase {
     }
 
     func testPairingExpiration() async {
-        let uri = try! await appPairService.create(supportedMethods: nil)
+        let uri = try! await appPairService.create()
         let pairing = storageMock.getPairing(forTopic: uri.topic)!
         service.setupExpirationHandling()
         storageMock.onPairingExpiration?(pairing)

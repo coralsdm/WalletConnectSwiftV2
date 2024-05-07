@@ -1,24 +1,24 @@
 import Combine
 import Foundation
 import WalletConnectSign
-@testable import WalletConnectUtils
+import WalletConnectUtils
 @testable import WalletConnectModal
 @testable import WalletConnectSign
 
 final class ModalSheetInteractorMock: ModalSheetInteractor {
     
-    var wallets: [Wallet]
+    var listings: [Listing]
     
-    init(wallets: [Wallet] = Wallet.stubList) {
-        self.wallets = wallets
+    init(listings: [Listing] = Listing.stubList) {
+        self.listings = listings
     }
 
-    func getWallets(page: Int, entries: Int) async throws -> (Int, [Wallet]) {
-        (1, wallets)
+    func getListings() async throws -> [Listing] {
+        listings
     }
     
     func createPairingAndConnect() async throws -> WalletConnectURI? {
-        .init(topic: "foo", symKey: "bar", relay: .init(protocol: "irn", data: nil), expiryTimestamp: 1706001526)
+        .init(topic: "foo", symKey: "bar", relay: .init(protocol: "irn", data: nil))
     }
     
     var sessionSettlePublisher: AnyPublisher<Session, Never> {
@@ -30,11 +30,11 @@ final class ModalSheetInteractorMock: ModalSheetInteractor {
         let sessionProposal = Session.Proposal(
             id: "",
             pairingTopic: "",
-            proposer: AppMetadata(name: "", description: "", url: "", icons: [], redirect: AppMetadata.Redirect(native: "", universal: nil)),
+            proposer: AppMetadata(name: "", description: "", url: "", icons: []),
             requiredNamespaces: [:],
             optionalNamespaces: nil,
             sessionProperties: nil,
-            proposal: SessionProposal(relays: [], proposer: Participant(publicKey: "", metadata: AppMetadata(name: "", description: "", url: "", icons: [], redirect: AppMetadata.Redirect(native: "", universal: nil))), requiredNamespaces: [:], optionalNamespaces: [:], sessionProperties: [:])
+            proposal: SessionProposal(relays: [], proposer: Participant(publicKey: "", metadata: AppMetadata(name: "", description: "", url: "", icons: [])), requiredNamespaces: [:], optionalNamespaces: [:], sessionProperties: [:])
         )
         
         return Result.Publisher((sessionProposal, SignReasonCode.userRejectedChains))

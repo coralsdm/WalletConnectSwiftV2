@@ -16,7 +16,7 @@ enum ListingsAPI: HTTPService {
     }
 
     var queryParameters: [String : String]? {
-        return ["projectId": InputConfig.projectId, "isVerified": "true", "isFeatured": "true"]
+        return ["projectId": InputConfig.projectId, "entries": "100", "is_verified": "false"]
     }
 
     var additionalHeaderFields: [String : String]? {

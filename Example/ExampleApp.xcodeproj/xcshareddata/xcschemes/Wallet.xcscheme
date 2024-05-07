@@ -75,21 +75,12 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "C56EE21A293F55ED004840D1"
-            BuildableName = "WalletApp.app"
-            BlueprintName = "WalletApp"
-            ReferencedContainer = "container:ExampleApp.xcodeproj">
-         </BuildableReference>
-      </BuildableProductRunnable>
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
             BlueprintIdentifier = "764E1D3B26F8D3FC00A1FB15"
             BuildableName = "WalletConnect Wallet.app"
             BlueprintName = "Wallet"
             ReferencedContainer = "container:ExampleApp.xcodeproj">
          </BuildableReference>
-      </MacroExpansion>
+      </BuildableProductRunnable>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -107,15 +98,6 @@
             ReferencedContainer = "container:ExampleApp.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "764E1D3B26F8D3FC00A1FB15"
-            BuildableName = "WalletConnect Wallet.app"
-            BlueprintName = "Wallet"
-            ReferencedContainer = "container:ExampleApp.xcodeproj">
-         </BuildableReference>
-      </MacroExpansion>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

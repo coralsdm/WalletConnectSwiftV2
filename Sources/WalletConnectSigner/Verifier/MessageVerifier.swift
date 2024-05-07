@@ -16,18 +16,6 @@ public struct MessageVerifier {
 
     public func verify(signature: CacaoSignature,
         message: String,
-        account: Account
-    ) async throws {
-        try await self.verify(
-            signature: signature,
-            message: message,
-            address: account.address,
-            chainId: account.blockchainIdentifier
-        )
-    }
-
-    public func verify(signature: CacaoSignature,
-        message: String,
         address: String,
         chainId: String
     ) async throws {

@@ -2,7 +2,6 @@ import Foundation
 import Mixpanel
 import WalletConnectNetworking
 import Combine
-import Web3Wallet
 import WalletConnectNotify
 
 final class ProfilingService {
@@ -35,8 +34,6 @@ final class ProfilingService {
         handleLogs(from: Networking.instance.logsPublisher)
         handleLogs(from: Notify.instance.logsPublisher)
         handleLogs(from: Push.instance.logsPublisher)
-        handleLogs(from: Web3Wallet.instance.logsPublisher)
-
     }
 
     private func handleLogs(from publisher: AnyPublisher<Log, Never>) {

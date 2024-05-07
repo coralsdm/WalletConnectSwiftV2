@@ -13,10 +13,9 @@ extension NotifySubscription {
             account: account,
             relay: relay,
             metadata: metadata,
-            scope: ["test": ScopeValue(id: "id", name: "name", description: "desc", imageUrls: nil, enabled: true)],
+            scope: ["test": ScopeValue(description: "desc", enabled: true)],
             expiry: expiry,
-            symKey: symKey,
-            appAuthenticationKey: "did:key:z6MkpTEGT75mnz8TiguXYYVnS1GbsNCdLo72R7kUCLShTuFV"
+            symKey: symKey
         )
     }
 }

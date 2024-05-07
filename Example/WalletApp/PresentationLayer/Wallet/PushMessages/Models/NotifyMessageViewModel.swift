@@ -24,8 +24,4 @@ struct NotifyMessageViewModel: Identifiable {
     var publishedAt: String {
         return pushMessageRecord.publishedAt.formatted(.relative(presentation: .named, unitsStyle: .wide))
     }
-
-    var type: String {
-        return pushMessageRecord.message.type
-    }
 }

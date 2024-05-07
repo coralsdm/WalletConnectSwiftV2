@@ -1,10 +1,15 @@
 import SwiftUI
 
+enum NavigationBarStyle {
+    case translucent(UIColor)
+}
+
 protocol SceneViewModel {
     var sceneTitle: String? { get }
     var largeTitleDisplayMode: UINavigationItem.LargeTitleDisplayMode { get }
     var leftBarButtonItem: UIBarButtonItem? { get }
     var rightBarButtonItem: UIBarButtonItem? { get }
+    var navigationBarStyle: NavigationBarStyle { get }
     var preferredStatusBarStyle: UIStatusBarStyle { get }
     var isNavigationBarTranslucent: Bool { get }
 
@@ -22,6 +27,9 @@ extension SceneViewModel {
     }
     var rightBarButtonItem: UIBarButtonItem? {
         return .none
+    }
+    var navigationBarStyle: NavigationBarStyle {
+        return .translucent(.w_background)
     }
     var preferredStatusBarStyle: UIStatusBarStyle {
         return .default
@@ -48,6 +56,7 @@ class SceneViewController<ViewModel: SceneViewModel, Content: View>: UIHostingCo
         super.viewDidLoad()
         setupView()
         setupNavigation()
+        setupNavigationBarStyle()
     }
 
     @objc required dynamic init?(coder aDecoder: NSCoder) {
@@ -69,5 +78,13 @@ private extension SceneViewController {
         navigationItem.largeTitleDisplayMode = viewModel.largeTitleDisplayMode
         navigationItem.rightBarButtonItem = viewModel.rightBarButtonItem
         navigationItem.leftBarButtonItem = viewModel.leftBarButtonItem
+    }
+
+    func setupNavigationBarStyle() {
+        switch viewModel.navigationBarStyle {
+        case .translucent(let color):
+            navigationController?.navigationBar.barTintColor = color
+            navigationController?.navigationBar.isTranslucent = true
+        }
     }
 }

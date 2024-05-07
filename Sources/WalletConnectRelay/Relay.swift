@@ -16,7 +16,6 @@ public class Relay {
             relayHost: config.relayHost,
             projectId: config.projectId,
             socketFactory: config.socketFactory,
-            groupIdentifier: config.groupIdentifier,
             socketConnectionType: config.socketConnectionType
         )
     }()
@@ -34,14 +33,12 @@ public class Relay {
     static public func configure(
         relayHost: String = "relay.walletconnect.com",
         projectId: String,
-        groupIdentifier: String,
         socketFactory: WebSocketFactory,
         socketConnectionType: SocketConnectionType = .automatic
     ) {
         Relay.config = Relay.Config(
             relayHost: relayHost,
             projectId: projectId,
-            groupIdentifier: groupIdentifier,
             socketFactory: socketFactory,
             socketConnectionType: socketConnectionType
         )
