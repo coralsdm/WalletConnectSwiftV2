@@ -292,7 +292,7 @@ extension ModalViewModel: WalletDeeplinkHandler {
             let nativeUrlString = try formatNativeUrlString(nativeScheme)
             let universalUrlString = try formatUniversalUrlString(universalScheme)
             
-            if let universalUrl = nativeUrlString?.toURL(), preferBrowser {
+            if let universalUrl = universalUrlString?.toURL(), preferUniversal {
                 uiApplicationWrapper.openURL(universalUrl) { success in
                     if !success {
                         self.toast = Toast(style: .error, message: DeeplinkErrors.failedToOpen.localizedDescription)
