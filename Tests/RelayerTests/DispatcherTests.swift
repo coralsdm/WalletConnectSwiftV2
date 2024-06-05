@@ -27,10 +27,6 @@ class WebSocketMock: WebSocketConnecting {
         isConnected = true
         onConnect?()
     }
-    
-    func reconnect() {
-        self.connect()
-    }
 
     func disconnect() {
         isConnected = false

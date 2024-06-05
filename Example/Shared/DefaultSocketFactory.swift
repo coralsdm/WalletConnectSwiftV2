@@ -2,11 +2,7 @@ import Foundation
 import Starscream
 import WalletConnectRelay
 
-extension WebSocket: WebSocketConnecting {
-    public func reconnect() {
-        self.connect()
-    }
-}
+extension WebSocket: WebSocketConnecting { }
 
 struct DefaultSocketFactory: WebSocketFactory {
     func create(with url: URL) -> WebSocketConnecting {
